@@ -526,6 +526,12 @@ class AuthInterceptor @Inject constructor(
                     )
                 }
             }
+            ServiceType.UNRAID -> {
+                // The Unraid API authenticates GraphQL calls with a plain API key header.
+                instance.apiKey?.trim()?.takeIf { it.isNotBlank() }?.let {
+                    builder.addHeader("x-api-key", it)
+                }
+            }
             ServiceType.PTERODACTYL,
             ServiceType.CALAGOPUS,
             ServiceType.PROMETHEUS,

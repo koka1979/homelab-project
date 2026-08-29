@@ -250,6 +250,7 @@ fun ServiceLoginScreen(
                 ServiceType.TRUENAS -> stringResource(R.string.login_hint_truenas)
                 ServiceType.PTERODACTYL -> stringResource(R.string.login_hint_pterodactyl)
                 ServiceType.CALAGOPUS -> stringResource(R.string.login_hint_calagopus)
+                ServiceType.UNRAID -> stringResource(R.string.login_hint_unraid)
                 ServiceType.PROXMOX_BACKUP_SERVER -> stringResource(R.string.login_hint_proxmox_backup_server)
                 ServiceType.PROMETHEUS -> stringResource(R.string.login_hint_prometheus)
                 ServiceType.GRAFANA -> stringResource(R.string.login_hint_grafana)
@@ -528,6 +529,7 @@ fun ServiceLoginScreen(
                 serviceType == ServiceType.TRUENAS ||
                 serviceType == ServiceType.PTERODACTYL ||
                 serviceType == ServiceType.CALAGOPUS ||
+                serviceType == ServiceType.UNRAID ||
                 serviceType == ServiceType.GRAFANA ||
                 serviceType == ServiceType.NETBOX ||
                 serviceType == ServiceType.ZAMMAD ||

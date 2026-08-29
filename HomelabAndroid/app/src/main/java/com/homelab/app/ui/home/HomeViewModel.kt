@@ -78,6 +78,7 @@ class HomeViewModel @Inject constructor(
     private val wakapiRepository: com.homelab.app.data.repository.WakapiRepository,
     private val pterodactylRepository: PterodactylRepository,
     private val calagopusRepository: CalagopusRepository,
+    private val unraidRepository: com.homelab.app.data.repository.UnraidRepository,
     private val observabilityRepository: ObservabilityRepository,
     private val infrastructureOperationsRepository: InfrastructureOperationsRepository,
     private val localPreferencesRepository: LocalPreferencesRepository
@@ -425,6 +426,11 @@ class HomeViewModel @Inject constructor(
                 val servers = calagopusRepository.getServers(instanceId)
                 val running = countRunningCalagopusServers(instanceId, servers)
                 InstanceSummary("$running", "/ ${servers.size}", "calagopus_running_servers")
+            }
+            ServiceType.UNRAID -> {
+                val containers = unraidRepository.getContainers(instanceId)
+                val running = containers.count { it.isRunning }
+                InstanceSummary("$running", "/ ${containers.size}", "unraid_running_containers")
             }
             else -> null
         }

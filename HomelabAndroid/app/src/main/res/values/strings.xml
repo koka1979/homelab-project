@@ -1930,4 +1930,41 @@
     <string name="linux_update_confirm_action_message">This action changes packages or the system state and will be recorded in the local audit trail.</string>
     <string name="game_server_confirm_action">Confirm %1$s?</string>
     <string name="game_server_confirm_action_message">This action changes the game server state and will be recorded in the local audit trail.</string>
+
+    <!-- Unraid -->
+    <string name="service_unraid">Unraid</string>
+    <string name="service_unraid_desc">Unraid server: array, shares, Docker and VMs</string>
+    <string name="login_hint_unraid">Enter the server URL (e.g. https://tower.local) and an API key created under Settings &#8594; Management Access &#8594; API keys, or with "unraid-api apikey --create". Requires Unraid 7 with the official API enabled.</string>
+    <string name="unraid_action_sent">Action sent</string>
+    <string name="unraid_error_unsupported">This Unraid build does not support the requested operation. Update the Unraid API or check the API key permissions.</string>
+    <string name="unraid_running_containers">running containers</string>
+    <string name="unraid_confirm_title">Confirm action</string>
+    <string name="unraid_confirm_message">Run \"%1$s\" on %2$s?</string>
+    <string name="unraid_section_system">System</string>
+    <string name="unraid_section_array">Array</string>
+    <string name="unraid_section_shares">Shares</string>
+    <string name="unraid_section_docker">Docker</string>
+    <string name="unraid_section_vms">Virtual machines</string>
+    <string name="unraid_section_notifications">Notifications</string>
+    <string name="unraid_section_docker_count">Docker · %1$d / %2$d running</string>
+    <string name="unraid_section_vms_count">Virtual machines · %1$d / %2$d running</string>
+    <string name="unraid_parity_disks">Parity disks</string>
+    <string name="unraid_data_disks">Data disks</string>
+    <string name="unraid_cache_disks">Cache disks</string>
+    <string name="unraid_version">Unraid version</string>
+    <string name="unraid_kernel">Kernel</string>
+    <string name="unraid_cpu">CPU</string>
+    <string name="unraid_memory">Memory</string>
+    <string name="unraid_state_unknown">Unknown</string>
+    <string name="unraid_disk_errors">%1$d errors</string>
+    <string name="unraid_notifications_summary">%1$d unread · %2$d alerts · %3$d warnings</string>
+    <string name="unraid_sections_unavailable">Not provided by this Unraid build: %1$s</string>
+    <string name="unraid_action_start">Start</string>
+    <string name="unraid_action_stop">Stop</string>
+    <string name="unraid_action_restart">Restart</string>
+    <string name="unraid_action_pause">Pause</string>
+    <string name="unraid_action_resume">Resume</string>
+    <string name="unraid_action_force_stop">Force stop</string>
+    <string name="unraid_action_parity_start">Parity check</string>
+    <string name="unraid_action_parity_cancel">Cancel parity check</string>
 </resources>
