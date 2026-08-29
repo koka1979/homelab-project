@@ -165,6 +165,8 @@ fun UnraidDashboardScreen(
                         onAction = onAction
                     )
                 }
+
+                else -> {}
             }
         }
     }

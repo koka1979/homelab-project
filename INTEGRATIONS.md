@@ -4,7 +4,7 @@ The catalogue preserves all upstream dashboards and adds the infrastructure, ope
 
 ## Upstream baseline (preserve)
 
-Portainer, Proxmox VE, TrueNAS Scale/Core, Uptime Kuma, Dockhand, DockMon, Komodo, Beszel, Linux Update Dashboard, Crafty Controller, Pterodactyl, Calagopus, Gitea/Forgejo, Pangolin/Newt, Healthchecks, PatchMon, Wakapi, Pi-hole, AdGuard Home, UniFi, Technitium DNS, Maltrail, Nginx Proxy Manager/NPMplus, Plex, Jellystat, Sonarr, Radarr, Lidarr, Prowlarr, qBittorrent, Jellyseerr, Bazarr, Gluetun and FlareSolverr.
+Portainer, Proxmox VE, TrueNAS Scale/Core, Unraid, Uptime Kuma, Dockhand, DockMon, Komodo, Beszel, Linux Update Dashboard, Crafty Controller, Pterodactyl, Calagopus, Gitea/Forgejo, Pangolin/Newt, Healthchecks, PatchMon, Wakapi, Pi-hole, AdGuard Home, UniFi, Technitium DNS, Maltrail, Nginx Proxy Manager/NPMplus, Plex, Jellystat, Sonarr, Radarr, Lidarr, Prowlarr, qBittorrent, Jellyseerr, Bazarr, Gluetun and FlareSolverr.
 
 ## COStech expansion catalogue
 

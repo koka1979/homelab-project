@@ -81,6 +81,7 @@ enum BackupServiceTypeMapper {
         case .truenas:           return "truenas"
         case .pterodactyl:       return "pterodactyl"
         case .calagopus:         return "calagopus"
+        case .unraid:            return "unraid"
         }
     }
 
@@ -152,6 +153,10 @@ enum BackupServiceTypeMapper {
              "truenas-core":          return .truenas
         case "pterodactyl":          return .pterodactyl
         case "calagopus":            return .calagopus
+        case "unraid",
+             "unraid_os",
+             "unraid-os",
+             "unraidos":             return .unraid
         default:                     return nil
         }
     }

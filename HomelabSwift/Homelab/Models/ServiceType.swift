@@ -43,6 +43,7 @@ public enum ServiceType: String, CaseIterable, Identifiable, Codable, Hashable, 
     case truenas
     case pterodactyl
     case calagopus
+    case unraid
 
     public var id: String { rawValue }
 
@@ -107,6 +108,8 @@ public enum ServiceType: String, CaseIterable, Identifiable, Codable, Hashable, 
             return .pterodactyl
         case "calagopus":
             return .calagopus
+        case "unraid", "unraid_os", "unraidos", "unraid_server":
+            return .unraid
         default:
             return nil
         }
@@ -193,6 +196,7 @@ public enum ServiceType: String, CaseIterable, Identifiable, Codable, Hashable, 
         case .truenas:            return "TrueNAS"
         case .pterodactyl:        return "Pterodactyl"
         case .calagopus:          return "Calagopus"
+        case .unraid:             return "Unraid"
         }
     }
 
@@ -240,6 +244,7 @@ public enum ServiceType: String, CaseIterable, Identifiable, Codable, Hashable, 
         case .truenas:            return t.serviceTruenasDesc
         case .pterodactyl:        return t.servicePterodactylDesc
         case .calagopus:          return t.serviceCalagopusDesc
+        case .unraid:             return t.serviceUnraidDesc
         }
     }
 
@@ -292,6 +297,7 @@ public enum ServiceType: String, CaseIterable, Identifiable, Codable, Hashable, 
         case .truenas:            return "externaldrive.connected.to.line.below.fill"
         case .pterodactyl:        return "gamecontroller.fill"
         case .calagopus:          return "bird.fill"
+        case .unraid:             return "externaldrive.connected.to.line.below.fill"
         }
     }
 
@@ -339,6 +345,7 @@ public enum ServiceType: String, CaseIterable, Identifiable, Codable, Hashable, 
         case .truenas:            return "https://cdn.jsdelivr.net/gh/selfhst/icons/png/truenas-scale.png"
         case .pterodactyl:        return "https://cdn.jsdelivr.net/gh/selfhst/icons/png/pterodactyl.png"
         case .calagopus:          return "https://cdn.jsdelivr.net/gh/selfhst/icons/png/calagopus.png"
+        case .unraid:             return "https://cdn.jsdelivr.net/gh/selfhst/icons/png/unraid.png"
         }
     }
 
@@ -392,6 +399,7 @@ public enum ServiceType: String, CaseIterable, Identifiable, Codable, Hashable, 
         case .truenas:            slug = "truenas-scale"
         case .pterodactyl:        slug = "pterodactyl"
         case .calagopus:          slug = "calagopus"
+        case .unraid:             slug = "unraid"
         }
         var orderedCandidates: [String] = []
         let primary = iconUrl.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -453,6 +461,7 @@ public enum ServiceType: String, CaseIterable, Identifiable, Codable, Hashable, 
         case .truenas:            return "service-truenas"
         case .pterodactyl:        return "service-pterodactyl"
         case .calagopus:          return "service-calagopus"
+        case .unraid:             return "service-unraid"
         }
     }
 
@@ -500,6 +509,7 @@ public enum ServiceType: String, CaseIterable, Identifiable, Codable, Hashable, 
         case .truenas:            return ServiceColorSet(primary: .truenasAccessibleAccent, dark: Color(hex: "#006EA3"), bg: Color(hex: "#0095D5").opacity(0.09))
         case .pterodactyl:        return ServiceColorSet(primary: Color(hex: "#0E4BEF"), dark: Color(hex: "#0B38C5"), bg: Color(hex: "#0E4BEF").opacity(0.09))
         case .calagopus:          return ServiceColorSet(primary: Color(hex: "#16A34A"), dark: Color(hex: "#15803D"), bg: Color(hex: "#16A34A").opacity(0.09))
+        case .unraid:             return ServiceColorSet(primary: Color(hex: "#F15A2C"), dark: Color(hex: "#C7431C"), bg: Color(hex: "#F15A2C").opacity(0.09))
         }
     }
 }
@@ -619,6 +629,8 @@ enum ProviderRegistry {
                 capabilities = [.health, .writeActions]
             case .pterodactyl, .calagopus, .craftyController:
                 capabilities = [.health, .writeActions]
+            case .unraid:
+                capabilities = [.health, .resources, .events, .metrics, .writeActions]
             case .proxmoxBackupServer:
                 capabilities = [.health, .resources, .events, .metrics]
             case .prometheus:
