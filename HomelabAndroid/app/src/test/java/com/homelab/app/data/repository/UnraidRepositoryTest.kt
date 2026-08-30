@@ -100,4 +100,56 @@ class UnraidRepositoryTest {
             assertEquals("HTTP 500: upstream timeout", error.detail)
         }
     }
+
+    @Test
+    fun `login treats a validation complaint as a reachable, authenticated endpoint`() {
+        // The API rejects a document it cannot validate with 400 — that answer still proves the
+        // request got past authentication, so the key must not be reported as wrong.
+        val outcome = classifyLoginResponse(
+            code = 400,
+            body = """{"errors":[{"message":"Cannot query field \"platform\" on type \"Os\"."}]}""",
+            json = json
+        )
+
+        assertEquals(UnraidLoginOutcome.Accepted, outcome)
+    }
+
+    @Test
+    fun `login keeps the status and message of a real failure`() {
+        val outcome = classifyLoginResponse(code = 502, body = "upstream unavailable", json = json)
+
+        val rejected = outcome as UnraidLoginOutcome.Rejected
+        assertEquals(UnraidApiException.Kind.SERVER_ERROR, rejected.kind)
+        assertEquals("HTTP 502: upstream unavailable", rejected.detail)
+    }
+
+    @Test
+    fun `login reports a rejected key as an authentication failure`() {
+        val unauthorized = classifyLoginResponse(
+            code = 401,
+            body = """{"errors":[{"message":"Unauthorized"}]}""",
+            json = json
+        ) as UnraidLoginOutcome.Rejected
+        assertEquals(UnraidApiException.Kind.INVALID_CREDENTIALS, unauthorized.kind)
+        assertEquals("Unauthorized", unauthorized.detail)
+
+        // Some builds answer 200 with the refusal in the errors array instead.
+        val softRefusal = classifyLoginResponse(
+            code = 200,
+            body = """{"errors":[{"message":"Forbidden resource: missing permission"}]}""",
+            json = json
+        ) as UnraidLoginOutcome.Rejected
+        assertEquals(UnraidApiException.Kind.INVALID_CREDENTIALS, softRefusal.kind)
+    }
+
+    @Test
+    fun `login accepts a well formed answer and rejects an empty one`() {
+        assertEquals(
+            UnraidLoginOutcome.Accepted,
+            classifyLoginResponse(code = 200, body = """{"data":{"info":{"os":{"platform":"linux"}}}}""", json = json)
+        )
+
+        val empty = classifyLoginResponse(code = 200, body = "", json = json) as UnraidLoginOutcome.Rejected
+        assertEquals(UnraidApiException.Kind.SERVER_ERROR, empty.kind)
+    }
 }

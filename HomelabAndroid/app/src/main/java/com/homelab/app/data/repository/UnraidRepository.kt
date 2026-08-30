@@ -135,25 +135,13 @@ class UnraidRepository @Inject constructor(
 
         try {
             tlsClientSelector.forAllowSelfSigned(allowSelfSigned).newCall(request).execute().use { response ->
-                if (response.code == 401 || response.code == 403) {
-                    throw UnraidApiException(UnraidApiException.Kind.INVALID_CREDENTIALS)
-                }
-                if (!response.isSuccessful) {
-                    throw UnraidApiException(UnraidApiException.Kind.SERVER_ERROR)
-                }
-                val body = response.body?.string().orEmpty()
-                val decoded = runCatching {
-                    json.decodeFromString(UnraidGraphQlResponse.serializer(), body)
-                }.getOrElse {
-                    throw UnraidApiException(UnraidApiException.Kind.SERVER_ERROR, cause = it)
-                }
-                val failure = decoded.errors?.firstOrNull()?.message
-                if (failure != null && !UnraidGraphQl.isSchemaMismatch(failure)) {
-                    throw UnraidApiException(classifyGraphQlError(failure), failure)
-                }
-                // A schema mismatch still proves the endpoint answered an authenticated request.
-                if (failure == null && decoded.data == null) {
-                    throw UnraidApiException(UnraidApiException.Kind.SERVER_ERROR)
+                val outcome = classifyLoginResponse(
+                    code = response.code,
+                    body = runCatching { response.body?.string() }.getOrNull(),
+                    json = json
+                )
+                if (outcome is UnraidLoginOutcome.Rejected) {
+                    throw UnraidApiException(outcome.kind, outcome.detail)
                 }
             }
         } catch (error: UnraidApiException) {
@@ -394,4 +382,58 @@ class UnraidRepository @Inject constructor(
     private companion object {
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
+}
+
+internal sealed interface UnraidLoginOutcome {
+    data object Accepted : UnraidLoginOutcome
+    data class Rejected(val kind: UnraidApiException.Kind, val detail: String?) : UnraidLoginOutcome
+}
+
+/**
+ * Decides what a login probe means, kept free of OkHttp so it can be exercised directly.
+ *
+ * The Unraid API answers a document it cannot validate with HTTP 400, so a non-2xx response is
+ * not automatically a failed login: a validation complaint proves the request got past
+ * authentication and the key is good. Anything else keeps the status and the server's own
+ * message, because a bare "server error" leaves the user nothing to act on.
+ */
+internal fun classifyLoginResponse(code: Int, body: String?, json: Json): UnraidLoginOutcome {
+    val payload = body?.takeIf { it.isNotBlank() }
+    val decoded = payload?.let {
+        runCatching { json.decodeFromString(UnraidGraphQlResponse.serializer(), it) }.getOrNull()
+    }
+    val failure = decoded?.errors?.firstOrNull()?.message?.takeIf { it.isNotBlank() }
+
+    if (code == 401 || code == 403) {
+        return UnraidLoginOutcome.Rejected(UnraidApiException.Kind.INVALID_CREDENTIALS, failure)
+    }
+
+    if (code !in 200..299) {
+        if (failure != null && UnraidGraphQl.isSchemaMismatch(failure)) {
+            return UnraidLoginOutcome.Accepted
+        }
+        val detail = listOfNotNull("HTTP $code", failure ?: payload?.take(300)).joinToString(": ")
+        return UnraidLoginOutcome.Rejected(UnraidApiException.Kind.SERVER_ERROR, detail)
+    }
+
+    if (failure != null) {
+        // A schema mismatch still proves the endpoint answered an authenticated request.
+        if (UnraidGraphQl.isSchemaMismatch(failure)) return UnraidLoginOutcome.Accepted
+        val unauthorized = listOf("unauthorized", "unauthenticated", "forbidden", "api key", "permission")
+            .any { failure.lowercase().contains(it) }
+        val kind = if (unauthorized) {
+            UnraidApiException.Kind.INVALID_CREDENTIALS
+        } else {
+            UnraidApiException.Kind.SERVER_ERROR
+        }
+        return UnraidLoginOutcome.Rejected(kind, failure)
+    }
+
+    if (decoded?.data == null) {
+        return UnraidLoginOutcome.Rejected(
+            UnraidApiException.Kind.SERVER_ERROR,
+            payload?.take(300)
+        )
+    }
+    return UnraidLoginOutcome.Accepted
 }

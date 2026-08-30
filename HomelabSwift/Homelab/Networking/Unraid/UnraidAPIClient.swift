@@ -382,27 +382,43 @@ actor UnraidAPIClient {
             "Content-Type": "application/json"
         ]
 
-        var schemaMismatch: String?
         for document in UnraidGraphQL.ping {
             let body = try JSONEncoder().encode(UnraidGraphQLRequest(query: document))
-            let response: UnraidGraphQLResponse<UnraidInfoData> = try await engine.request(
-                baseURL: cleanBase,
-                fallbackURL: cleanFallback,
-                path: "/graphql",
-                method: "POST",
-                headers: requestHeaders,
-                body: body
-            )
+            let response: UnraidGraphQLResponse<UnraidInfoData>
+            do {
+                response = try await engine.request(
+                    baseURL: cleanBase,
+                    fallbackURL: cleanFallback,
+                    path: "/graphql",
+                    method: "POST",
+                    headers: requestHeaders,
+                    body: body
+                )
+            } catch {
+                guard let failure = Self.graphQLFailure(from: error) else { throw error }
+                if failure.status == 401 || failure.status == 403 {
+                    throw UnraidAPIError.invalidCredentials
+                }
+                // A validation complaint proves the request got past authentication, so the key
+                // is good even though this particular document was rejected.
+                if let message = failure.message, UnraidGraphQL.isSchemaMismatch(message) {
+                    return
+                }
+                throw UnraidAPIError.server(
+                    ["HTTP \(failure.status)", failure.message].compactMap { $0 }.joined(separator: ": ")
+                )
+            }
+
             if let failure = response.errors?.first?.message {
                 if UnraidGraphQL.isSchemaMismatch(failure) {
-                    schemaMismatch = failure
                     continue
                 }
                 throw Self.classify(failure)
             }
             return
         }
-        throw UnraidAPIError.unsupportedOperation(schemaMismatch)
+        // Every candidate was answered, none was understood: the endpoint is reachable and
+        // authenticated, which is all the login needs to establish.
     }
 
     // MARK: Reads
