@@ -292,6 +292,24 @@ class UnraidRepository @Inject constructor(
                 api.graphql(instanceId, UnraidGraphQlRequest(query = document))
             } catch (error: CancellationException) {
                 throw error
+            } catch (error: HttpException) {
+                // The Unraid API rejects a document it cannot validate with HTTP 400 rather than
+                // a 200 carrying an errors array, so the candidate fallback has to inspect the
+                // error body too. Without this, one unknown field fails the whole section.
+                val failure = graphQlErrorFrom(error)
+                when {
+                    error.code() == 401 || error.code() == 403 ->
+                        throw UnraidApiException(UnraidApiException.Kind.INVALID_CREDENTIALS, failure, error)
+                    failure != null && UnraidGraphQl.isSchemaMismatch(failure) -> {
+                        mismatch = failure
+                        continue
+                    }
+                    else -> throw UnraidApiException(
+                        UnraidApiException.Kind.SERVER_ERROR,
+                        listOfNotNull("HTTP ${error.code()}", failure).joinToString(": "),
+                        error
+                    )
+                }
             } catch (error: Exception) {
                 throw translate(error)
             }
@@ -336,12 +354,41 @@ class UnraidRepository @Inject constructor(
     private fun translate(error: Throwable): UnraidApiException = when (error) {
         is UnraidApiException -> error
         is HttpException -> when (error.code()) {
-            401, 403 -> UnraidApiException(UnraidApiException.Kind.INVALID_CREDENTIALS, cause = error)
-            else -> UnraidApiException(UnraidApiException.Kind.SERVER_ERROR, cause = error)
+            401, 403 -> UnraidApiException(
+                UnraidApiException.Kind.INVALID_CREDENTIALS,
+                graphQlErrorFrom(error),
+                error
+            )
+            else -> UnraidApiException(
+                UnraidApiException.Kind.SERVER_ERROR,
+                listOfNotNull("HTTP ${error.code()}", graphQlErrorFrom(error)).joinToString(": "),
+                error
+            )
         }
-        is SerializationException -> UnraidApiException(UnraidApiException.Kind.SERVER_ERROR, cause = error)
+        // Surface the parser complaint: an unexpected field type is the difference between
+        // "your server is broken" and "this build reports a value in another shape".
+        is SerializationException -> UnraidApiException(
+            UnraidApiException.Kind.SERVER_ERROR,
+            error.message?.take(300),
+            error
+        )
         is IOException -> UnraidApiException(UnraidApiException.Kind.CONNECTION_ERROR, cause = error)
-        else -> UnraidApiException(UnraidApiException.Kind.SERVER_ERROR, cause = error)
+        else -> UnraidApiException(UnraidApiException.Kind.SERVER_ERROR, error.message?.take(300), error)
+    }
+
+    /**
+     * Reads the GraphQL error message out of a non-2xx response, falling back to a short excerpt
+     * of the raw body so a non-GraphQL error page still reaches the user instead of a bare code.
+     */
+    private fun graphQlErrorFrom(error: HttpException): String? {
+        val body = runCatching { error.response()?.errorBody()?.string() }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        val parsed = runCatching {
+            json.decodeFromString(UnraidGraphQlResponse.serializer(), body).errors?.firstOrNull()?.message
+        }.getOrNull()
+        return parsed?.takeIf { it.isNotBlank() } ?: body.take(300)
     }
 
     private companion object {

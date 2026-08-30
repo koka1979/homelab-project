@@ -120,4 +120,44 @@ class UnraidDtoTest {
             assertTrue(action.actionId, pattern.matches(action.actionId))
         }
     }
+
+    @Test
+    fun `numeric fields survive the shapes Unraid actually sends`() {
+        // Capacities come back quoted, memory as a float, and a missing temperature as "*".
+        val array = json.decodeFromString(
+            UnraidArrayData.serializer(),
+            """{"array":{"state":"STARTED",
+                "capacity":{"kilobytes":{"free":"1000","used":3000.0,"total":"4000"}},
+                "disks":[{"id":"d1","name":"disk1","temp":"*","numErrors":"7","fsSize":2.0e3,"fsUsed":"1500"}]}}"""
+        )
+        val disk = array.array!!.disks.single()
+
+        assertEquals(4000L, array.array!!.capacity?.kilobytes?.total)
+        assertEquals(3000L, array.array!!.capacity?.kilobytes?.used)
+        assertEquals(0, disk.temp)
+        assertEquals(7L, disk.numErrors)
+        assertEquals(0.75f, disk.usedPercent)
+
+        val info = json.decodeFromString(
+            UnraidInfoData.serializer(),
+            """{"info":{"memory":{"total":1.6777216E7,"used":"8388608"},"cpu":{"cores":"8","threads":16}}}"""
+        )
+        assertEquals(16777216L, info.info?.memory?.total)
+        assertEquals(0.5f, info.info?.memory?.usedPercent)
+        assertEquals(8, info.info?.cpu?.cores)
+    }
+
+    @Test
+    fun `each section keeps a minimal candidate so one unknown field cannot blank it`() {
+        listOf(
+            UnraidGraphQl.SYSTEM,
+            UnraidGraphQl.ARRAY,
+            UnraidGraphQl.SHARES,
+            UnraidGraphQl.DOCKER,
+            UnraidGraphQl.NOTIFICATIONS
+        ).forEach { candidates ->
+            assertTrue(candidates.size >= 2)
+            assertTrue(candidates.last().length < candidates.first().length)
+        }
+    }
 }

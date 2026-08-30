@@ -517,14 +517,33 @@ actor UnraidAPIClient {
         var schemaMismatch: String?
         for document in documents {
             let body = try JSONEncoder().encode(UnraidGraphQLRequest(query: document))
-            let response: UnraidGraphQLResponse<T> = try await engine.request(
-                baseURL: baseURL,
-                fallbackURL: fallbackURL,
-                path: "/graphql",
-                method: "POST",
-                headers: headers(),
-                body: body
-            )
+            let response: UnraidGraphQLResponse<T>
+            do {
+                response = try await engine.request(
+                    baseURL: baseURL,
+                    fallbackURL: fallbackURL,
+                    path: "/graphql",
+                    method: "POST",
+                    headers: headers(),
+                    body: body
+                )
+            } catch {
+                // The Unraid API rejects a document it cannot validate with HTTP 400 rather than
+                // a 200 carrying an errors array, so the candidate fallback has to inspect the
+                // error body too. Without this, one unknown field fails the whole section.
+                guard let failure = Self.graphQLFailure(from: error) else { throw error }
+                if failure.status == 401 || failure.status == 403 {
+                    throw UnraidAPIError.invalidCredentials
+                }
+                if let message = failure.message, UnraidGraphQL.isSchemaMismatch(message) {
+                    schemaMismatch = message
+                    continue
+                }
+                throw UnraidAPIError.server(
+                    ["HTTP \(failure.status)", failure.message].compactMap { $0 }.joined(separator: ": ")
+                )
+            }
+
             if let failure = response.errors?.first?.message {
                 if UnraidGraphQL.isSchemaMismatch(failure) {
                     schemaMismatch = failure
@@ -538,6 +557,30 @@ actor UnraidAPIClient {
             return payload
         }
         throw UnraidAPIError.unsupportedOperation(schemaMismatch)
+    }
+
+    /// Reads the GraphQL error message out of a non-2xx response, unwrapping the combined error
+    /// the engine raises when both the primary and the fallback URL fail.
+    private static func graphQLFailure(from error: Error) -> (status: Int, message: String?)? {
+        switch error {
+        case let APIError.httpError(statusCode, body):
+            return (statusCode, message(fromBody: body))
+        case let APIError.bothURLsFailed(primaryError, _):
+            return graphQLFailure(from: primaryError)
+        default:
+            return nil
+        }
+    }
+
+    private static func message(fromBody body: String) -> String? {
+        guard !body.isEmpty else { return nil }
+        if let data = body.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode(UnraidGraphQLResponse<UnraidMutationAck>.self, from: data),
+           let message = decoded.errors?.first?.message,
+           !message.isEmpty {
+            return message
+        }
+        return String(body.prefix(300))
     }
 
     private static func classify(_ message: String) -> UnraidAPIError {
@@ -588,7 +631,8 @@ enum UnraidGraphQL {
             versions { unraid }
           }
         }
-        """
+        """,
+        "query { info { os { platform distro release } } }"
     ]
 
     static let array: [String] = [
@@ -611,17 +655,20 @@ enum UnraidGraphQL {
             disks { id name device size status temp type }
           }
         }
-        """
+        """,
+        "query { array { state } }"
     ]
 
     static let shares: [String] = [
         "query { shares { name comment free used size } }",
-        "query { shares { name free used } }"
+        "query { shares { name free used } }",
+        "query { shares { name } }"
     ]
 
     static let docker: [String] = [
         "query { docker { containers { id names image state status autoStart } } }",
-        "query { docker { containers { id names image state status } } }"
+        "query { docker { containers { id names image state status } } }",
+        "query { docker { containers { id names state } } }"
     ]
 
     static let vms: [String] = [
@@ -639,7 +686,8 @@ enum UnraidGraphQL {
           }
         }
         """,
-        "query { notifications { overview { unread { info warning alert total } } } }"
+        "query { notifications { overview { unread { info warning alert total } } } }",
+        "query { notifications { overview { unread { total } } } }"
     ]
 
     /// Cheapest document that still proves both connectivity and a valid API key.

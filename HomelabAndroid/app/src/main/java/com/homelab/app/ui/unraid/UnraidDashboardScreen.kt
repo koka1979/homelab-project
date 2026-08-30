@@ -430,7 +430,7 @@ private fun DiskRow(disk: UnraidDisk) {
                     )
                     val details = listOfNotNull(
                         disk.device?.takeIf { it.isNotBlank() },
-                        disk.temp?.let { "$it °C" },
+                        disk.temp?.takeIf { it > 0 }?.let { "$it °C" },
                         disk.numErrors?.takeIf { it > 0 }?.let { stringResource(R.string.unraid_disk_errors, it) }
                     ).joinToString(" · ")
                     if (details.isNotBlank()) {

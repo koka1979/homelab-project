@@ -1,7 +1,17 @@
 package com.homelab.app.data.remote.dto.unraid
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.longOrNull
 
 // ---------- GraphQL envelope ----------
 
@@ -21,6 +31,42 @@ data class UnraidGraphQlResponse(
 data class UnraidGraphQlError(
     val message: String = ""
 )
+
+// ---------- Lenient numbers ----------
+
+/**
+ * Unraid reports the same quantity as a GraphQL Long, Float or String depending on the field and
+ * the release — capacities in particular come back quoted. Decoding those into a strict Long
+ * fails the whole section, so every numeric field goes through these serializers instead.
+ * A value that is not a number at all (Unraid prints "*" for a missing disk temperature) decodes
+ * to 0, which callers treat as "no reading".
+ */
+object LenientLongSerializer : KSerializer<Long> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("UnraidLenientLong", PrimitiveKind.LONG)
+
+    override fun deserialize(decoder: Decoder): Long {
+        val jsonDecoder = decoder as? JsonDecoder ?: return decoder.decodeLong()
+        val primitive = jsonDecoder.decodeJsonElement() as? JsonPrimitive ?: return 0L
+        return primitive.longOrNull
+            ?: primitive.doubleOrNull?.toLong()
+            ?: primitive.content.trim().toLongOrNull()
+            ?: primitive.content.trim().toDoubleOrNull()?.toLong()
+            ?: 0L
+    }
+
+    override fun serialize(encoder: Encoder, value: Long) = encoder.encodeLong(value)
+}
+
+object LenientIntSerializer : KSerializer<Int> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("UnraidLenientInt", PrimitiveKind.INT)
+
+    override fun deserialize(decoder: Decoder): Int =
+        LenientLongSerializer.deserialize(decoder).coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
+
+    override fun serialize(encoder: Encoder, value: Int) = encoder.encodeInt(value)
+}
 
 // ---------- System ----------
 
@@ -50,15 +96,15 @@ data class UnraidOs(
 data class UnraidCpu(
     val manufacturer: String? = null,
     val brand: String? = null,
-    val cores: Int? = null,
-    val threads: Int? = null
+    @Serializable(with = LenientIntSerializer::class) val cores: Int? = null,
+    @Serializable(with = LenientIntSerializer::class) val threads: Int? = null
 )
 
 @Serializable
 data class UnraidMemory(
-    val total: Long? = null,
-    val free: Long? = null,
-    val used: Long? = null
+    @Serializable(with = LenientLongSerializer::class) val total: Long? = null,
+    @Serializable(with = LenientLongSerializer::class) val free: Long? = null,
+    @Serializable(with = LenientLongSerializer::class) val used: Long? = null
 ) {
     val usedPercent: Float?
         get() {
@@ -102,9 +148,9 @@ data class UnraidArrayCapacity(
 
 @Serializable
 data class UnraidCapacityValues(
-    val free: Long? = null,
-    val used: Long? = null,
-    val total: Long? = null
+    @Serializable(with = LenientLongSerializer::class) val free: Long? = null,
+    @Serializable(with = LenientLongSerializer::class) val used: Long? = null,
+    @Serializable(with = LenientLongSerializer::class) val total: Long? = null
 ) {
     val usedPercent: Float?
         get() {
@@ -117,16 +163,16 @@ data class UnraidCapacityValues(
 @Serializable
 data class UnraidDisk(
     val id: String? = null,
-    val idx: Int? = null,
+    @Serializable(with = LenientIntSerializer::class) val idx: Int? = null,
     val name: String? = null,
     val device: String? = null,
-    val size: Long? = null,
+    @Serializable(with = LenientLongSerializer::class) val size: Long? = null,
     val status: String? = null,
-    val temp: Int? = null,
-    val numErrors: Long? = null,
-    val fsSize: Long? = null,
-    val fsFree: Long? = null,
-    val fsUsed: Long? = null,
+    @Serializable(with = LenientIntSerializer::class) val temp: Int? = null,
+    @Serializable(with = LenientLongSerializer::class) val numErrors: Long? = null,
+    @Serializable(with = LenientLongSerializer::class) val fsSize: Long? = null,
+    @Serializable(with = LenientLongSerializer::class) val fsFree: Long? = null,
+    @Serializable(with = LenientLongSerializer::class) val fsUsed: Long? = null,
     val type: String? = null
 ) {
     val displayName: String
@@ -155,9 +201,9 @@ data class UnraidSharesData(
 data class UnraidShare(
     val name: String? = null,
     val comment: String? = null,
-    val free: Long? = null,
-    val used: Long? = null,
-    val size: Long? = null
+    @Serializable(with = LenientLongSerializer::class) val free: Long? = null,
+    @Serializable(with = LenientLongSerializer::class) val used: Long? = null,
+    @Serializable(with = LenientLongSerializer::class) val size: Long? = null
 )
 
 // ---------- Docker ----------
@@ -236,10 +282,10 @@ data class UnraidNotificationOverview(
 
 @Serializable
 data class UnraidNotificationCounts(
-    val info: Int = 0,
-    val warning: Int = 0,
-    val alert: Int = 0,
-    val total: Int = 0
+    @Serializable(with = LenientIntSerializer::class) val info: Int = 0,
+    @Serializable(with = LenientIntSerializer::class) val warning: Int = 0,
+    @Serializable(with = LenientIntSerializer::class) val alert: Int = 0,
+    @Serializable(with = LenientIntSerializer::class) val total: Int = 0
 )
 
 @Serializable

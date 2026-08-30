@@ -33,7 +33,8 @@ object UnraidGraphQl {
             versions { unraid }
           }
         }
-        """.trimIndent()
+        """.trimIndent(),
+        "query { info { os { platform distro release } } }"
     )
 
     val ARRAY: List<String> = listOf(
@@ -56,7 +57,8 @@ object UnraidGraphQl {
             disks { id name device size status temp type }
           }
         }
-        """.trimIndent()
+        """.trimIndent(),
+        "query { array { state } }"
     )
 
     val SHARES: List<String> = listOf(
@@ -69,7 +71,8 @@ object UnraidGraphQl {
         query {
           shares { name free used }
         }
-        """.trimIndent()
+        """.trimIndent(),
+        "query { shares { name } }"
     )
 
     val DOCKER: List<String> = listOf(
@@ -82,7 +85,8 @@ object UnraidGraphQl {
         query {
           docker { containers { id names image state status } }
         }
-        """.trimIndent()
+        """.trimIndent(),
+        "query { docker { containers { id names state } } }"
     )
 
     val VMS: List<String> = listOf(
@@ -108,7 +112,8 @@ object UnraidGraphQl {
         query {
           notifications { overview { unread { info warning alert total } } }
         }
-        """.trimIndent()
+        """.trimIndent(),
+        "query { notifications { overview { unread { total } } } }"
     )
 
     /** Cheapest document that still proves both connectivity and a valid API key. */
