@@ -154,10 +154,10 @@ fun ProxmoxNodeDetailScreen(
                                     // Progress bars
                                     ProgressBar(label = "CPU", percent = data.status.cpuPercent, color = serviceColor)
                                     Spacer(Modifier.height(8.dp))
-                                    ProgressBar(label = "RAM", percent = data.status.memPercent, color = Color.Blue, detail = formatBytes(data.status.mem ?: 0L) + " / " + formatBytes(data.status.maxmem ?: 0L))
+                                    ProgressBar(label = "RAM", percent = data.status.memPercent, color = Color.Blue, detail = formatBytes(data.status.memUsed) + " / " + formatBytes(data.status.memTotal))
                                     Spacer(Modifier.height(8.dp))
-                                    if ((data.status.maxswap ?: 0) > 0) {
-                                        ProgressBar(label = "Swap", percent = data.status.swapPercent, color = Color(0xFFFF9800), detail = formatBytes(data.status.swap ?: 0L) + " / " + formatBytes(data.status.maxswap ?: 0L))
+                                    if (data.status.swapTotal > 0) {
+                                        ProgressBar(label = "Swap", percent = data.status.swapPercent, color = Color(0xFFFF9800), detail = formatBytes(data.status.swapUsed) + " / " + formatBytes(data.status.swapTotal))
                                         Spacer(Modifier.height(8.dp))
                                     }
                                     data.status.rootfs?.let { rootfs ->
