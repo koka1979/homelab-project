@@ -329,7 +329,7 @@ struct SettingsView: View {
                     title: localizer.t.settingsContactLinuxUpdate,
                     iconUrl: "https://cdn.jsdelivr.net/gh/selfhst/icons/png/github.png",
                     fallbackSystemName: "chevron.left.slash.chevron.right",
-                    url: "https://github.com/JohnnWi/homelab-project",
+                    url: "https://github.com/koka1979/homelab-project",
                     color: Color(hex: "#24292F")
                 )
             }
