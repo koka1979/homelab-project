@@ -336,6 +336,7 @@ struct HomeView: View {
         case .truenas:           TrueNASDashboard(instanceId: route.instanceId)
         case .pterodactyl:       PterodactylDashboard(instanceId: route.instanceId)
         case .calagopus:         CalagopusDashboard(instanceId: route.instanceId)
+        case .unraid:            UnraidDashboard(instanceId: route.instanceId)
         case .jellyseerr, .prowlarr, .bazarr, .gluetun, .flaresolverr:
                                  GenericMediaDashboard(serviceType: route.type, instanceId: route.instanceId)
         }
@@ -614,6 +615,15 @@ struct HomeView: View {
                 let servers = try await client.getServers()
                 let running = await countRunningCalagopusServers(servers, client: client)
                 return ServiceSummaryInfo(value: "\(running)", subValue: "/ \(servers.count)", label: localizer.t.calagopusRunningServers)
+            case .unraid:
+                guard let client = await servicesStore.unraidClient(instanceId: instanceId) else { return nil }
+                let containers = try await client.containers()
+                let running = containers.filter(\.isRunning).count
+                return ServiceSummaryInfo(
+                    value: "\(running)",
+                    subValue: "/ \(containers.count)",
+                    label: localizer.t.unraidRunningContainers
+                )
             default:
                 return nil
             }

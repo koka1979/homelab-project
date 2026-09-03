@@ -202,6 +202,13 @@ object ProviderRegistry {
                     ProviderCapability.EVENTS,
                     ProviderCapability.METRICS
                 )
+                ServiceType.UNRAID -> setOf(
+                    ProviderCapability.HEALTH,
+                    ProviderCapability.RESOURCES,
+                    ProviderCapability.EVENTS,
+                    ProviderCapability.METRICS,
+                    ProviderCapability.WRITE_ACTIONS
+                )
                 else -> setOf(ProviderCapability.HEALTH)
             }
             ProviderDescriptor(

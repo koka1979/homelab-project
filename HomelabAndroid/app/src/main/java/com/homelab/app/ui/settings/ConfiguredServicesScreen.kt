@@ -434,6 +434,7 @@ internal fun serviceDisplayNameForSettings(type: ServiceType): String {
         ServiceType.TRUENAS -> stringResource(R.string.service_truenas)
         ServiceType.PTERODACTYL -> stringResource(R.string.service_pterodactyl)
         ServiceType.CALAGOPUS -> stringResource(R.string.service_calagopus)
+        ServiceType.UNRAID -> stringResource(R.string.service_unraid)
         ServiceType.UNKNOWN -> type.displayName
     }
 }

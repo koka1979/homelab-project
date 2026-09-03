@@ -64,6 +64,7 @@ class SseClient @Inject constructor(
                 ServiceType.TRUENAS -> "TrueNAS"
                 ServiceType.PTERODACTYL -> "Pterodactyl"
                 ServiceType.CALAGOPUS -> "Calagopus"
+                ServiceType.UNRAID -> "Unraid"
                 ServiceType.UNKNOWN -> "Unknown"
             })
             .build()

@@ -86,6 +86,7 @@ object BackupServiceTypeMapper {
             ServiceType.TRUENAS -> "truenas"
             ServiceType.PTERODACTYL -> "pterodactyl"
             ServiceType.CALAGOPUS -> "calagopus"
+            ServiceType.UNRAID -> "unraid"
             ServiceType.UNKNOWN -> "unknown"
         }
     }
@@ -137,6 +138,7 @@ object BackupServiceTypeMapper {
             "truenas_core", "truenas-core", "truenascore" -> ServiceType.TRUENAS
             "pterodactyl" -> ServiceType.PTERODACTYL
             "calagopus" -> ServiceType.CALAGOPUS
+            "unraid", "unraid_os", "unraid-os", "unraidos" -> ServiceType.UNRAID
             else -> null
         }
     }

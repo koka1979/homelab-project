@@ -48,6 +48,7 @@ enum class ServiceType(val displayName: String) {
     TRUENAS("TrueNAS"),
     PTERODACTYL("Pterodactyl"),
     CALAGOPUS("Calagopus"),
+    UNRAID("Unraid"),
     UNKNOWN("Unknown");
 
     companion object {
@@ -108,6 +109,10 @@ enum class ServiceType(val displayName: String) {
                 "TRUENASCORE" -> TRUENAS
                 "PTERODACTYL" -> PTERODACTYL
                 "CALAGOPUS" -> CALAGOPUS
+                "UNRAID",
+                "UNRAID_OS",
+                "UNRAIDOS",
+                "UNRAID_SERVER" -> UNRAID
                 else -> entries.firstOrNull { it.name == normalized } ?: UNKNOWN
             }
         }

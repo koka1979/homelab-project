@@ -191,6 +191,44 @@ fun ProxmoxDashboardScreen(
                             }
                         }
 
+                        // Nodes the credentials could not read: without this the dashboard would
+                        // simply show no guests for them, which looks like an empty node.
+                        if (data.nodeErrors.isNotEmpty()) {
+                            item(span = { GridItemSpan(2) }) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                text = stringResource(R.string.proxmox_node_load_failed),
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                        data.nodeErrors.forEach { (node, reason) ->
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                text = "$node: $reason",
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // Search TextField
                         item(span = { GridItemSpan(2) }) {
                             OutlinedTextField(

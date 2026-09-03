@@ -1694,6 +1694,36 @@ struct Translations {
     let calagopusStatusStarting: String
     let calagopusStatusOffline: String
     let calagopusStatusSuspended: String
+
+    // Unraid
+    let serviceUnraidDesc: String
+    let loginHintUnraid: String
+    let unraidSectionSystem: String
+    let unraidSectionArray: String
+    let unraidSectionShares: String
+    let unraidSectionDocker: String
+    let unraidSectionVms: String
+    let unraidSectionNotifications: String
+    let unraidParityDisks: String
+    let unraidDataDisks: String
+    let unraidCacheDisks: String
+    let unraidVersion: String
+    let unraidKernel: String
+    let unraidCpu: String
+    let unraidMemory: String
+    let unraidStateUnknown: String
+    let unraidDiskErrors: String
+    let unraidNotificationsSummary: String
+    let unraidSectionsUnavailable: String
+    let unraidRunningContainers: String
+    let unraidActionStart: String
+    let unraidActionStop: String
+    let unraidActionRestart: String
+    let unraidActionPause: String
+    let unraidActionResume: String
+    let unraidActionForceStop: String
+    let unraidActionParityStart: String
+    let unraidActionParityCancel: String
 }
 
 // MARK: - Factory

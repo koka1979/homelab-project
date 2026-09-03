@@ -5,6 +5,7 @@ import com.homelab.app.R
 import com.homelab.app.data.remote.HtmlResponseException
 import com.homelab.app.data.repository.CraftyApiException
 import com.homelab.app.data.repository.PatchmonApiException
+import com.homelab.app.data.repository.UnraidApiException
 import com.homelab.app.data.repository.WakapiApiException
 import kotlinx.serialization.SerializationException
 import retrofit2.HttpException
@@ -54,6 +55,15 @@ object ErrorHandler {
                     CraftyApiException.Kind.INVALID_CREDENTIALS -> context.getString(R.string.error_invalid_credentials)
                     CraftyApiException.Kind.SERVER_ERROR -> context.getString(R.string.error_server)
                     CraftyApiException.Kind.CONNECTION_ERROR -> context.getString(R.string.error_network)
+                }
+            }
+            is UnraidApiException -> {
+                when (error.kind) {
+                    UnraidApiException.Kind.INVALID_CREDENTIALS -> context.getString(R.string.error_invalid_credentials)
+                    UnraidApiException.Kind.UNSUPPORTED_OPERATION -> context.getString(R.string.unraid_error_unsupported)
+                    UnraidApiException.Kind.SERVER_ERROR ->
+                        error.detail?.takeIf { it.isNotBlank() } ?: context.getString(R.string.error_server)
+                    UnraidApiException.Kind.CONNECTION_ERROR -> context.getString(R.string.error_network)
                 }
             }
             is WakapiApiException -> {

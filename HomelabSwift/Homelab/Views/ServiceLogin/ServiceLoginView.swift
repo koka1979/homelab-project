@@ -71,6 +71,7 @@ struct ServiceLoginView: View {
             || serviceType == .truenas
             || serviceType == .pterodactyl
             || serviceType == .calagopus
+            || serviceType == .unraid
             || serviceType == .grafana
             || serviceType == .netbox
             || serviceType == .zammad
@@ -548,6 +549,7 @@ struct ServiceLoginView: View {
         case .truenas:           return localizer.t.loginHintTruenas
         case .pterodactyl:       return localizer.t.loginHintPterodactyl
         case .calagopus:         return localizer.t.loginHintCalagopus
+        case .unraid:            return localizer.t.loginHintUnraid
         case .qbittorrent, .radarr, .sonarr, .lidarr, .jellyseerr, .prowlarr, .bazarr:
                                  return nil
         default: return nil
@@ -839,6 +841,27 @@ struct ServiceLoginView: View {
             return ServiceInstance(
                 id: existingInstanceId ?? UUID(),
                 type: .calagopus,
+                label: label,
+                url: url,
+                token: "",
+                username: existingInstance?.username,
+                apiKey: key,
+                fallbackUrl: fallbackUrl,
+                allowSelfSigned: allowSelfSigned
+            )
+
+        case .unraid:
+            let key = normalizedOptional(apiKey) ?? existingInstance?.apiKey
+            guard let key, !key.isEmpty else {
+                throw APIError.custom(localizer.t.loginErrorCredentials)
+            }
+            let instanceId = existingInstanceId ?? UUID()
+            let client = UnraidAPIClient(instanceId: instanceId)
+            await client.configure(url: url, apiKey: key, fallbackUrl: fallbackUrl, allowSelfSigned: allowSelfSigned)
+            try await client.authenticate(url: url, apiKey: key, fallbackUrl: fallbackUrl)
+            return ServiceInstance(
+                id: instanceId,
+                type: .unraid,
                 label: label,
                 url: url,
                 token: "",

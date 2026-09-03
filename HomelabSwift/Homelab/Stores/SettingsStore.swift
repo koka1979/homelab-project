@@ -130,8 +130,8 @@ final class SettingsStore {
         static let checkForUpdatesEnabled = "homelab_check_updates_enabled"
     }
 
-    private static let updateFeedURL = URL(string: "https://raw.githubusercontent.com/JohnnWi/homelab-project/main/app-version.json")
-    private static let defaultUpdatePage = "https://github.com/JohnnWi/homelab-project/releases"
+    private static let updateFeedURL = URL(string: "https://raw.githubusercontent.com/koka1979/homelab-project/main/app-version.json")
+    private static let defaultUpdatePage = "https://github.com/koka1979/homelab-project/releases"
     private static let updateCheckInterval: TimeInterval = 15 * 60
 
     // MARK: - Init

@@ -113,6 +113,7 @@ private fun dashboardRoute(type: ServiceType, instanceId: String): String {
         ServiceType.TRUENAS -> "truenas/$instanceId/dashboard"
         ServiceType.PTERODACTYL -> "pterodactyl/$instanceId/dashboard"
         ServiceType.CALAGOPUS -> "calagopus/$instanceId/dashboard"
+        ServiceType.UNRAID -> "unraid/$instanceId/dashboard"
         ServiceType.RADARR,
         ServiceType.SONARR,
         ServiceType.LIDARR,
@@ -1408,6 +1409,23 @@ fun AppNavigation() {
                         if (newInstanceId != instanceId) {
                             navController.navigate(dashboardRoute(ServiceType.CALAGOPUS, newInstanceId)) {
                                 popUpTo("calagopus/$instanceId/dashboard") { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
+
+            composable(
+                route = "unraid/{instanceId}/dashboard",
+                arguments = listOf(androidx.navigation.navArgument("instanceId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val instanceId = backStackEntry.arguments?.getString("instanceId") ?: return@composable
+                com.homelab.app.ui.unraid.UnraidDashboardScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToInstance = { newInstanceId ->
+                        if (newInstanceId != instanceId) {
+                            navController.navigate(dashboardRoute(ServiceType.UNRAID, newInstanceId)) {
+                                popUpTo("unraid/$instanceId/dashboard") { inclusive = true }
                             }
                         }
                     }

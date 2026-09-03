@@ -773,7 +773,7 @@ fun SettingsScreen(
                     ContactChip(
                         label = stringResource(R.string.settings_contact_repository),
                         iconUrl = "https://cdn.jsdelivr.net/gh/selfhst/icons/png/github.png",
-                        onClick = { uriHandler.openUri("https://github.com/JohnnWi/homelab-project") },
+                        onClick = { uriHandler.openUri("https://github.com/koka1979/homelab-project") },
                         modifier = Modifier.weight(1f)
                     )
                 }

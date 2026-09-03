@@ -324,23 +324,50 @@ data class ProxmoxApiResponse<T>(
 
 // MARK: - Node Status Detail
 
+/** Memory and swap totals as `/nodes/{node}/status` reports them: an object, not a scalar. */
+@Serializable
+data class ProxmoxMemoryInfo(
+    val total: Long? = null,
+    val used: Long? = null,
+    val free: Long? = null
+) {
+    val usedPercent: Double
+        get() {
+            val totalBytes = total ?: return 0.0
+            val usedBytes = used ?: return 0.0
+            return if (totalBytes > 0) usedBytes.toDouble() / totalBytes.toDouble() * 100 else 0.0
+        }
+}
+
+@Serializable
+data class ProxmoxCpuInfo(
+    val model: String? = null,
+    val cores: Int? = null,
+    val cpus: Int? = null,
+    val sockets: Int? = null
+)
+
 @Serializable
 data class ProxmoxNodeStatus(
     val uptime: Int? = null,
     val cpu: Double? = null,
     val wait: Double? = null,
-    val mem: Long? = null,
-    val maxmem: Long? = null,
-    val swap: Long? = null,
-    val maxswap: Long? = null,
+    val memory: ProxmoxMemoryInfo? = null,
+    val swap: ProxmoxMemoryInfo? = null,
+    val cpuinfo: ProxmoxCpuInfo? = null,
     val rootfs: ProxmoxDiskInfo? = null,
     val kversion: String? = null,
-    val pveversion: String? = null,
-    val cpus: Int? = null
+    val pveversion: String? = null
 ) {
+    val cpus: Int? get() = cpuinfo?.cpus ?: cpuinfo?.cores
+    val memUsed: Long get() = memory?.used ?: 0L
+    val memTotal: Long get() = memory?.total ?: 0L
+    val swapUsed: Long get() = swap?.used ?: 0L
+    val swapTotal: Long get() = swap?.total ?: 0L
+
     val cpuPercent: Double get() = (cpu ?: 0.0) * 100
-    val memPercent: Double get() = if ((maxmem ?: 0) > 0) (mem?.toDouble() ?: 0.0) / (maxmem?.toDouble() ?: 1.0) * 100 else 0.0
-    val swapPercent: Double get() = if ((maxswap ?: 0) > 0) (swap?.toDouble() ?: 0.0) / (maxswap?.toDouble() ?: 1.0) * 100 else 0.0
+    val memPercent: Double get() = memory?.usedPercent ?: 0.0
+    val swapPercent: Double get() = swap?.usedPercent ?: 0.0
     val rootfsPercent: Double get() {
         val r = rootfs ?: return 0.0
         return if ((r.total ?: 0) > 0) (r.used?.toDouble() ?: 0.0) / (r.total?.toDouble() ?: 1.0) * 100 else 0.0

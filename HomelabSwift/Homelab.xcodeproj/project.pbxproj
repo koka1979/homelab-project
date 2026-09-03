@@ -156,6 +156,8 @@
 		CC23054F0C872CC583502288 /* MaltrailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE4821BAECE125BF5D455F /* MaltrailModels.swift */; };
 		CC2C094024169C94BD06958F /* LinuxUpdateAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC7D0097236C2F692BCAB383 /* LinuxUpdateAPIClient.swift */; };
 		CC8DE4D3D830FF7F610EDF1B /* CalagopusAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6159D00710B8E9BA71CAFDC0 /* CalagopusAPIClient.swift */; };
+		3A4CE1C2EB38E46D36A2CD0D /* UnraidAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 034464CED6E9F3EBE919324C /* UnraidAPIClient.swift */; };
+		13E69643F4B948F8D6947466 /* UnraidDashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81BA0B9D91D52D0E03219AE3 /* UnraidDashboard.swift */; };
 		CD29007C4FB0AD271F85673C /* JellystatAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D364FA7AED9BAC9B522C01 /* JellystatAPIClient.swift */; };
 		CE78DBCA639D954A7CCB26D3 /* ServiceErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBB688D017EE8175FB27EC7D /* ServiceErrorView.swift */; };
 		CF0124025064FF55FAD14233 /* BeszelDashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408F0E514FDE46F6A78D0A58 /* BeszelDashboard.swift */; };
@@ -286,6 +288,8 @@
 		5F1F09E5D4D69F8311840E4F /* ServiceLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceLoginView.swift; sourceTree = "<group>"; };
 		5F7EDC22BCE4C069B41BA65C /* RadarrModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarrModels.swift; sourceTree = "<group>"; };
 		6159D00710B8E9BA71CAFDC0 /* CalagopusAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalagopusAPIClient.swift; sourceTree = "<group>"; };
+		034464CED6E9F3EBE919324C /* UnraidAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnraidAPIClient.swift; sourceTree = "<group>"; };
+		81BA0B9D91D52D0E03219AE3 /* UnraidDashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnraidDashboard.swift; sourceTree = "<group>"; };
 		61FF27D860A84E8974681CFE /* QbittorrentModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QbittorrentModels.swift; sourceTree = "<group>"; };
 		64BA80A727F9A71D30277F9E /* BeszelContainersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeszelContainersView.swift; sourceTree = "<group>"; };
 		64D8F0162AE327AA60600505 /* Translations+Italian.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Translations+Italian.swift"; sourceTree = "<group>"; };
@@ -486,6 +490,14 @@
 			path = Calagopus;
 			sourceTree = "<group>";
 		};
+		6376F9C6635EA2771F57BDBA /* Unraid */ = {
+			isa = PBXGroup;
+			children = (
+				034464CED6E9F3EBE919324C /* UnraidAPIClient.swift */,
+			);
+			path = Unraid;
+			sourceTree = "<group>";
+		};
 		0D47235EA9B3E7ABB54D915C /* Komodo */ = {
 			isa = PBXGroup;
 			children = (
@@ -594,6 +606,14 @@
 				7B06D4217C6B4508B5E8B865 /* CalagopusDashboard.swift */,
 			);
 			path = Calagopus;
+			sourceTree = "<group>";
+		};
+		AE4C9A3ADCD5FD422F109F92 /* Unraid */ = {
+			isa = PBXGroup;
+			children = (
+				81BA0B9D91D52D0E03219AE3 /* UnraidDashboard.swift */,
+			);
+			path = Unraid;
 			sourceTree = "<group>";
 		};
 		315D15A9A015777069607D57 /* Komodo */ = {
@@ -1071,6 +1091,7 @@
 				F1265188363BF5B5C00056A5 /* Beszel */,
 				ECAF9E33BDB4EE0FFFF630D0 /* Bookmarks */,
 				2A11C19BD60250B7E009AD55 /* Calagopus */,
+				AE4C9A3ADCD5FD422F109F92 /* Unraid */,
 				5A93214C3BDCB9BEC5FCCD73 /* Components */,
 				766B8D5D15CBF16824D30AD0 /* Crafty */,
 				D544ABDB8DF1FE38D7862D8B /* Dockhand */,
@@ -1207,6 +1228,7 @@
 				0FF3AB848856515A57C1F122 /* AdGuardHome */,
 				D5B24EF44902FCBD35F6D145 /* Beszel */,
 				0CDA3454933CE4C859BCE287 /* Calagopus */,
+				6376F9C6635EA2771F57BDBA /* Unraid */,
 				8A7222B61ABE4DC99B26EDA7 /* Crafty */,
 				E7700DDE3FA87FCC29C7446A /* Dockmon */,
 				289C5939524BACC32CDCCF25 /* Gitea */,
@@ -1482,6 +1504,8 @@
 				62EF5383568C38878FAB5623 /* BookmarkManager.swift in Sources */,
 				DF86CB1FB4E3E32A79142588 /* BookmarksView.swift in Sources */,
 				CC8DE4D3D830FF7F610EDF1B /* CalagopusAPIClient.swift in Sources */,
+				3A4CE1C2EB38E46D36A2CD0D /* UnraidAPIClient.swift in Sources */,
+				13E69643F4B948F8D6947466 /* UnraidDashboard.swift in Sources */,
 				B5EC1AE9E8F74A570F189E3D /* CalagopusDashboard.swift in Sources */,
 				654B246C79458CB80AEC15D8 /* CategoryFormView.swift in Sources */,
 				91FEB90D9F7C9387B1CD8BA9 /* ConfiguredServicesView.swift in Sources */,

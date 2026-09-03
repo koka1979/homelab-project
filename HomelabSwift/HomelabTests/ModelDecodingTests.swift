@@ -1615,6 +1615,70 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertTrue(ProviderRegistry.descriptor(for: .calagopus).capabilities.contains(.writeActions))
     }
 
+    func testUnraidControlledActionsCarryRiskAndTypedTargets() {
+        let instanceId = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+
+        let stopArray = UnraidControlledAction.arrayStop.request(
+            instanceId: instanceId,
+            targetId: nil,
+            confirmed: true
+        )
+        XCTAssertEqual(stopArray.providerRef, "unraid:00000000-0000-0000-0000-000000000001")
+        XCTAssertEqual(stopArray.action, "array.stop")
+        XCTAssertEqual(stopArray.targetRef, "array")
+        XCTAssertEqual(stopArray.risk, .critical)
+
+        let stopContainer = UnraidControlledAction.containerStop.request(
+            instanceId: instanceId,
+            targetId: "Plex-01",
+            confirmed: false
+        )
+        XCTAssertEqual(stopContainer.targetRef, "container/plex-01")
+        XCTAssertEqual(stopContainer.risk, .medium)
+        XCTAssertFalse(UnraidControlledAction.containerStart.requiresConfirmation)
+        XCTAssertTrue(UnraidControlledAction.vmForceStop.requiresConfirmation)
+        XCTAssertTrue(ProviderRegistry.descriptor(for: .unraid).capabilities.contains(.writeActions))
+
+        // Action ids must satisfy the controlled-action policy pattern.
+        let pattern = try? NSRegularExpression(pattern: "^[a-z][a-z0-9.-]{1,127}$")
+        for action in UnraidControlledAction.allCases {
+            let range = NSRange(action.rawValue.startIndex..., in: action.rawValue)
+            XCTAssertNotNil(pattern?.firstMatch(in: action.rawValue, range: range), action.rawValue)
+        }
+    }
+
+    func testUnraidDecodesArrayAndFallsBackOnSchemaErrors() throws {
+        let payload = """
+        {
+          "data": {
+            "array": {
+              "state": "STARTED",
+              "capacity": { "kilobytes": { "free": 1000, "used": 3000, "total": 4000 } },
+              "disks": [
+                { "id": "d1", "name": "disk1", "status": "DISK_OK", "temp": 38,
+                  "fsSize": 2000, "fsFree": 500, "fsUsed": 1500 },
+                { "id": "d2", "name": "disk2", "status": "DISK_DSBL", "numErrors": 12 }
+              ]
+            }
+          }
+        }
+        """.data(using: .utf8)!
+
+        let response = try JSONDecoder().decode(UnraidGraphQLResponse<UnraidArrayData>.self, from: payload)
+        let array = try XCTUnwrap(response.data?.array)
+
+        XCTAssertTrue(array.isStarted)
+        XCTAssertEqual(array.capacity?.kilobytes?.usedFraction, 0.75)
+        XCTAssertEqual(array.disks?.first?.displayName, "disk1")
+        XCTAssertEqual(array.disks?.first?.usedFraction, 0.75)
+        XCTAssertTrue(try XCTUnwrap(array.disks?.first).isHealthy)
+        XCTAssertFalse(try XCTUnwrap(array.disks?.last).isHealthy)
+
+        XCTAssertTrue(UnraidGraphQL.isSchemaMismatch("Cannot query field \"restart\" on type \"DockerMutations\"."))
+        XCTAssertFalse(UnraidGraphQL.isSchemaMismatch("Unauthorized: API key lacks DOCKER permission"))
+        XCTAssertEqual(UnraidGraphQL.startContainer("abc").count, 2)
+    }
+
     func testPterodactylIndeterminateMutationIsNonRetryable() async {
         let counter = ActionInvocationCounter()
         let request = PterodactylPowerSignal.restart.request(
