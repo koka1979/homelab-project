@@ -213,10 +213,26 @@ class ProxmoxViewModel @Inject constructor(
             val lxcsByNode = mutableMapOf<String, List<ProxmoxLXC>>()
             val storageByNode = mutableMapOf<String, List<ProxmoxStorage>>()
 
+            // A node the credentials cannot read must not look like a node without guests:
+            // record why it failed so the dashboard can say so instead of showing an empty list.
+            val nodeErrors = mutableMapOf<String, String>()
+
             nodes.forEach { node ->
-                try { vmsByNode[node.node] = proxmoxRepository.getVMs(instanceId, node.node) } catch (_: Exception) {}
-                try { lxcsByNode[node.node] = proxmoxRepository.getLXCs(instanceId, node.node) } catch (_: Exception) {}
-                try { storageByNode[node.node] = proxmoxRepository.getStorage(instanceId, node.node) } catch (_: Exception) {}
+                try {
+                    vmsByNode[node.node] = proxmoxRepository.getVMs(instanceId, node.node)
+                } catch (e: Exception) {
+                    nodeErrors[node.node] = resolvedMessage(e)
+                }
+                try {
+                    lxcsByNode[node.node] = proxmoxRepository.getLXCs(instanceId, node.node)
+                } catch (e: Exception) {
+                    nodeErrors.putIfAbsent(node.node, resolvedMessage(e))
+                }
+                try {
+                    storageByNode[node.node] = proxmoxRepository.getStorage(instanceId, node.node)
+                } catch (e: Exception) {
+                    nodeErrors.putIfAbsent(node.node, resolvedMessage(e))
+                }
             }
 
             val pools = try { proxmoxRepository.getPools(instanceId) } catch (_: Exception) { emptyList() }
@@ -228,7 +244,8 @@ class ProxmoxViewModel @Inject constructor(
                     vmsByNode = vmsByNode,
                     lxcsByNode = lxcsByNode,
                     storageByNode = storageByNode,
-                    pools = pools
+                    pools = pools,
+                    nodeErrors = nodeErrors
                 )
             )
         } catch (e: Exception) {
@@ -887,7 +904,9 @@ data class ProxmoxDashboardData(
     val vmsByNode: Map<String, List<ProxmoxVM>>,
     val lxcsByNode: Map<String, List<ProxmoxLXC>>,
     val storageByNode: Map<String, List<ProxmoxStorage>>,
-    val pools: List<ProxmoxPool>
+    val pools: List<ProxmoxPool>,
+    /** Nodes whose guests or storage could not be read, keyed by node name, with the reason. */
+    val nodeErrors: Map<String, String> = emptyMap()
 ) {
     val totalVMs: Int get() = vmsByNode.values.sumOf { it.size }
     val runningVMs: Int get() = vmsByNode.values.sumOf { it.count { vm -> vm.isRunning } }
