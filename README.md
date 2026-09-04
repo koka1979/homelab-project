@@ -14,12 +14,6 @@ Hi everyone, thanks for these past few months—it’s been great. However, for 
 
 Homelab Dashboard is a fully native mobile app for monitoring and managing a self-hosted homelab from one place. The project ships two dedicated apps, one for iOS and one for Android, designed around the same product idea while respecting each platform's native UI patterns.
 
-## 💝 Support the App Store Launch
-
-A GoFundMe campaign has been launched to raise €100 only to cover the Apple Developer Program account and the App Store publication costs for the iOS app. Every contribution helps make an official App Store release possible.
-
-**[→ Donate on GoFundMe](https://gofund.me/25ff55d40)**
-
 ---
 
 > **Disclaimer:** This is a vibe-coding project built for fun and personal use. It is provided as-is with no guarantees. The author assumes no responsibility for any issues, data loss, or damages resulting from the use of this software.
