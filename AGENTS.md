@@ -95,11 +95,21 @@ If the exact simulator is unavailable, list devices with `xcrun simctl list devi
 
 ## Release Flow
 
-- Release builds are manual unless signing automation is explicitly added later.
-- The user provides the final signed `Homelab.ipa` and `Homelab.apk`.
-- Create a GitHub release with tag `vX.Y.Z` and upload both assets.
-- The `Update AltStore Source` workflow updates `apps.json` and `app-version.json`.
-- After the workflow succeeds, pull `origin/main`.
+- Android releases are automated by the `Release Android` workflow: it builds
+  `:app:assembleRelease`, signs it with the keystore from the repository secrets,
+  publishes the release and sets `latest`, `changelog` and `android_url` in
+  `app-version.json`.
+- Start it with `workflow_dispatch` (no input needed) or by pushing tag `vX.Y.Z`;
+  the tag has to match `versionName`, otherwise the workflow stops.
+- Required secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+  `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Without them the workflow fails
+  instead of publishing an APK that cannot be installed as an update.
+- Release signing is only active when `HOMELAB_KEYSTORE_FILE` and friends are set in
+  the environment; a local `assembleRelease` stays unsigned.
+- iOS releases stay manual: the user provides the signed `Homelab.ipa`, uploads it to
+  the release, and the `Update AltStore Source` workflow updates `apps.json` and the
+  iOS entries of `app-version.json`.
+- After a workflow succeeds, pull `origin/main`.
 - Push `main` to `gitea` only as a mirror if desired.
 
 ## Manifest Rules

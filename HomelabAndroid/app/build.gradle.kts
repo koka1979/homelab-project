@@ -23,6 +23,22 @@ android {
         }
     }
 
+    // Release signing is only configured when the keystore is provided through the
+    // environment (the release workflow decodes it from the repository secrets).
+    // Without those variables the release build stays unsigned, exactly as before.
+    val releaseKeystore = System.getenv("HOMELAB_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
+
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("HOMELAB_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("HOMELAB_KEY_ALIAS")
+                keyPassword = System.getenv("HOMELAB_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -30,6 +46,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (releaseKeystore != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

@@ -1,0 +1,144 @@
+name: Release Android
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag; defaults to v + versionName from build.gradle.kts"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-android
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, sign and publish the APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check the signing secrets are present
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=""
+          [ -z "$KEYSTORE" ] && missing="$missing ANDROID_KEYSTORE_BASE64"
+          [ -z "$KEYSTORE_PASSWORD" ] && missing="$missing ANDROID_KEYSTORE_PASSWORD"
+          [ -z "$KEY_ALIAS" ] && missing="$missing ANDROID_KEY_ALIAS"
+          [ -z "$KEY_PASSWORD" ] && missing="$missing ANDROID_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "Missing repository secrets:$missing"
+            echo "An unsigned APK cannot be installed as an update, so the release is stopped here."
+            exit 1
+          fi
+
+      - name: Resolve release tag
+        id: meta
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          VERSION_NAME=$(grep -m1 'versionName' HomelabAndroid/app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          elif [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+          else
+            TAG="v$VERSION_NAME"
+          fi
+          if [ "$TAG" != "v$VERSION_NAME" ]; then
+            echo "Tag $TAG does not match versionName $VERSION_NAME in build.gradle.kts."
+            echo "Bump the version first so the release and the app report the same version."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v6.3.0
+
+      - name: Decode keystore
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Build signed release APK
+        working-directory: HomelabAndroid
+        env:
+          HOMELAB_KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
+          HOMELAB_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          HOMELAB_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          HOMELAB_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease --console=plain
+
+      - name: Verify the APK is signed and carries the released version
+        run: |
+          APK=HomelabAndroid/app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$APK" ]; then
+            echo "Expected a signed APK at $APK; the signing configuration did not apply."
+            ls -la HomelabAndroid/app/build/outputs/apk/release/
+            exit 1
+          fi
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
+          "$BUILD_TOOLS/aapt2" dump badging "$APK" | head -1
+          "$BUILD_TOOLS/aapt2" dump badging "$APK" | head -1 | grep -q "versionName='${{ steps.meta.outputs.version }}'"
+          cp "$APK" Homelab.apk
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" Homelab.apk --clobber
+          else
+            gh release create "$TAG" Homelab.apk \
+              --target "$GITHUB_SHA" \
+              --title "$TAG" \
+              --generate-notes
+          fi
+
+      - name: Point the update feed at the new APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          APK_URL="https://github.com/${{ github.repository }}/releases/download/$TAG/Homelab.apk"
+          CHANGELOG=$(gh release view "$TAG" --json body -q .body | sed 's/^#* *//')
+
+          git fetch origin main
+          git checkout main
+          git pull --rebase origin main
+
+          # Only the Android side is touched here; apps.json and ios_url stay with the
+          # Update AltStore Source workflow, which handles IPA releases.
+          jq --arg ver "$VERSION" --arg cl "$CHANGELOG" --arg android "$APK_URL" \
+            '.latest = $ver | .changelog = $cl | .android_url = $android' \
+            app-version.json > app_version_tmp.json && mv app_version_tmp.json app-version.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app-version.json
+          git diff --cached --quiet && echo "app-version.json already up to date" && exit 0
+          git commit -m "Update app-version.json to $TAG"
+          git push origin HEAD:main
