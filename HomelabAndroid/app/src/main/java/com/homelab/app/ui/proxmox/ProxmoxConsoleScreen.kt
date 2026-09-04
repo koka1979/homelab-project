@@ -52,11 +52,9 @@ fun ProxmoxConsoleScreen(
     }
 
     fun openInBrowser(ticketData: ProxmoxVncTicketData) {
-        val instance = viewModel.instances.value.find { it.id == viewModel.instanceId }
-        val baseUrl = instance?.url?.trimEnd('/') ?: ticketData.baseUrl
-        // Open the Proxmox login page as fallback since external browser won't have the cookie
-        val loginUrl = "$baseUrl/"
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl))
+        // The external browser does not share the WebView cookie jar; Proxmox shows its login
+        // screen first and opens the console afterwards.
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ticketData.buildConsoleUrl()))
         context.startActivity(intent)
     }
 
@@ -210,29 +208,6 @@ fun ProxmoxConsoleScreen(
                             }
                         }
                     } else {
-                        // Set the PVEAuthCookie before loading the WebView
-                        LaunchedEffect(ticketData.ticket) {
-                            val cookieManager = CookieManager.getInstance()
-                            cookieManager.setAcceptCookie(true)
-                            cookieManager.setAcceptThirdPartyCookies(
-                                android.webkit.WebView(context),
-                                true
-                            )
-                            val baseUri = runCatching { java.net.URI(ticketData.baseUrl) }.getOrNull()
-                            val cookieOrigin = baseUri?.scheme?.takeIf { it.isNotBlank() }?.let { scheme ->
-                                val authority = baseUri.authority?.takeIf { it.isNotBlank() } ?: return@let null
-                                "$scheme://$authority"
-                            }
-                            if (!cookieOrigin.isNullOrBlank()) {
-                                val secureAttribute = if (baseUri?.scheme.equals("https", ignoreCase = true)) "; Secure" else ""
-                                cookieManager.setCookie(
-                                    cookieOrigin,
-                                    "PVEAuthCookie=${ticketData.ticket}; Path=/$secureAttribute"
-                                )
-                                cookieManager.flush()
-                            }
-                        }
-
                         AndroidView(
                             factory = { ctx ->
                                 WebView(ctx).apply {
@@ -279,7 +254,23 @@ fun ProxmoxConsoleScreen(
                                         }
                                     }
 
-                                    loadUrl(ticketData.buildConsoleUrl())
+                                    // The cookie has to exist before the first request goes out,
+                                    // so the console URL is loaded from the setCookie callback.
+                                    val cookieManager = CookieManager.getInstance()
+                                    cookieManager.setAcceptCookie(true)
+                                    cookieManager.setAcceptThirdPartyCookies(this, true)
+                                    val cookieOrigin = ProxmoxConsoleSupport.cookieOrigin(ticketData.baseUrl)
+                                    if (cookieOrigin != null) {
+                                        cookieManager.setCookie(
+                                            cookieOrigin,
+                                            ProxmoxConsoleSupport.cookieValue(ticketData.authCookie, ticketData.baseUrl)
+                                        ) {
+                                            cookieManager.flush()
+                                            loadUrl(ticketData.buildConsoleUrl())
+                                        }
+                                    } else {
+                                        loadUrl(ticketData.buildConsoleUrl())
+                                    }
                                 }
                             },
                             modifier = Modifier.fillMaxSize(),

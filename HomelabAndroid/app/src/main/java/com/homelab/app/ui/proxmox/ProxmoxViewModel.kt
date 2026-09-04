@@ -521,12 +521,34 @@ class ProxmoxViewModel @Inject constructor(
         viewModelScope.launch {
             _vncTicketState.value = UiState.Loading
             try {
+                // Read the instance straight from the repository: `instances` is a
+                // WhileSubscribed flow that is still empty on the freshly created
+                // console ViewModel, which used to leave the console URL without a host.
+                val instance = servicesRepository.getInstance(instanceId)
+                val baseUrl = instance?.url?.trimEnd('/').orEmpty()
+                if (baseUrl.isBlank()) {
+                    _vncTicketState.value = UiState.Error(
+                        getApplication<Application>().getString(R.string.proxmox_console_missing_url)
+                    ) { fetchVncTicket(node, vmid, isQemu) }
+                    return@launch
+                }
+                val authCookie = ProxmoxConsoleSupport.authCookie(instance)
+                if (authCookie == null) {
+                    val message = if (ProxmoxConsoleSupport.usesApiToken(instance)) {
+                        R.string.proxmox_console_requires_login_ticket
+                    } else {
+                        R.string.proxmox_console_missing_session
+                    }
+                    _vncTicketState.value = UiState.Error(
+                        getApplication<Application>().getString(message)
+                    ) { fetchVncTicket(node, vmid, isQemu) }
+                    return@launch
+                }
                 val ticketData = proxmoxRepository.getVncTicket(instanceId, node, vmid, isQemu)
-                val instance = instances.value.find { it.id == instanceId }
-                val baseUrl = instance?.url?.trimEnd('/') ?: ""
                 _vncTicketState.value = UiState.Success(
                     ProxmoxVncTicketData(
                         ticket = ticketData.ticket,
+                        authCookie = authCookie,
                         port = ticketData.port,
                         baseUrl = baseUrl,
                         node = node,
@@ -976,7 +998,10 @@ data class ProxmoxGuestDetailData(
 }
 
 data class ProxmoxVncTicketData(
+    /** Ticket returned by `vncproxy`; it is the password of the VNC websocket, not a session. */
     val ticket: String,
+    /** Session ticket presented as `PVEAuthCookie` so the web UI accepts the WebView. */
+    val authCookie: String,
     val port: Int?,
     val baseUrl: String,
     val node: String,
@@ -984,8 +1009,8 @@ data class ProxmoxVncTicketData(
     val isQemu: Boolean
 ) {
     /**
-     * Builds the Proxmox noVNC URL with the ticket set as a cookie.
-     * The WebView should set the PVEAuthCookie before loading this URL.
+     * Builds the Proxmox noVNC URL. The `PVEAuthCookie` from [authCookie] must be stored for
+     * [baseUrl] before this URL is loaded, otherwise Proxmox answers with its login screen.
      */
     fun buildConsoleUrl(): String {
         return "$baseUrl/?console=${if (isQemu) "kvm" else "lxc"}&novnc=1&vmid=$vmid&node=$node&resize=off"

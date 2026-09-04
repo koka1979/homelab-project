@@ -927,25 +927,6 @@ private fun GuestConsoleTab(
                             }
                         }
                     } else {
-                        LaunchedEffect(ticketData.ticket) {
-                            val cookieManager = android.webkit.CookieManager.getInstance()
-                            cookieManager.setAcceptCookie(true)
-                            cookieManager.setAcceptThirdPartyCookies(android.webkit.WebView(context), true)
-                            val baseUri = runCatching { java.net.URI(ticketData.baseUrl) }.getOrNull()
-                            val cookieOrigin = baseUri?.scheme?.takeIf { it.isNotBlank() }?.let { scheme ->
-                                val authority = baseUri.authority?.takeIf { it.isNotBlank() } ?: return@let null
-                                "$scheme://$authority"
-                            }
-                            if (!cookieOrigin.isNullOrBlank()) {
-                                val secureAttribute = if (baseUri?.scheme.equals("https", ignoreCase = true)) "; Secure" else ""
-                                cookieManager.setCookie(
-                                    cookieOrigin,
-                                    "PVEAuthCookie=${ticketData.ticket}; Path=/$secureAttribute"
-                                )
-                                cookieManager.flush()
-                            }
-                        }
-
                         AndroidView(
                             factory = { ctx ->
                                 android.webkit.WebView(ctx).apply {
@@ -990,7 +971,23 @@ private fun GuestConsoleTab(
                                             handler?.cancel()
                                         }
                                     }
-                                    loadUrl(ticketData.buildConsoleUrl())
+                                    // The cookie has to exist before the first request goes out,
+                                    // so the console URL is loaded from the setCookie callback.
+                                    val cookieManager = android.webkit.CookieManager.getInstance()
+                                    cookieManager.setAcceptCookie(true)
+                                    cookieManager.setAcceptThirdPartyCookies(this, true)
+                                    val cookieOrigin = ProxmoxConsoleSupport.cookieOrigin(ticketData.baseUrl)
+                                    if (cookieOrigin != null) {
+                                        cookieManager.setCookie(
+                                            cookieOrigin,
+                                            ProxmoxConsoleSupport.cookieValue(ticketData.authCookie, ticketData.baseUrl)
+                                        ) {
+                                            cookieManager.flush()
+                                            loadUrl(ticketData.buildConsoleUrl())
+                                        }
+                                    } else {
+                                        loadUrl(ticketData.buildConsoleUrl())
+                                    }
                                 }
                             },
                             modifier = Modifier.fillMaxSize()
