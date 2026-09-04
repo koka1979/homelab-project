@@ -149,6 +149,10 @@ class ProxmoxViewModel @Inject constructor(
     private val _vncTicketState = MutableStateFlow<UiState<ProxmoxVncTicketData>>(UiState.Idle)
     val vncTicketState: StateFlow<UiState<ProxmoxVncTicketData>> = _vncTicketState.asStateFlow()
 
+    // Console URL for the external browser; also set when the embedded console cannot open
+    private val _consoleBrowserUrl = MutableStateFlow<String?>(null)
+    val consoleBrowserUrl: StateFlow<String?> = _consoleBrowserUrl.asStateFlow()
+
     // Global Tasks State
     private val _globalTasksState = MutableStateFlow<UiState<List<ProxmoxTask>>>(UiState.Idle)
     val globalTasksState: StateFlow<UiState<List<ProxmoxTask>>> = _globalTasksState.asStateFlow()
@@ -520,6 +524,7 @@ class ProxmoxViewModel @Inject constructor(
     fun fetchVncTicket(node: String, vmid: Int, isQemu: Boolean) {
         viewModelScope.launch {
             _vncTicketState.value = UiState.Loading
+            _consoleBrowserUrl.value = null
             try {
                 // Read the instance straight from the repository: `instances` is a
                 // WhileSubscribed flow that is still empty on the freshly created
@@ -532,6 +537,9 @@ class ProxmoxViewModel @Inject constructor(
                     ) { fetchVncTicket(node, vmid, isQemu) }
                     return@launch
                 }
+                // Known as soon as the URL is: opening the console in a browser stays possible
+                // even when the embedded WebView cannot authenticate.
+                _consoleBrowserUrl.value = ProxmoxConsoleSupport.consoleUrl(baseUrl, node, vmid, isQemu)
                 val authCookie = ProxmoxConsoleSupport.authCookie(instance)
                 if (authCookie == null) {
                     val message = if (ProxmoxConsoleSupport.usesApiToken(instance)) {
@@ -1012,7 +1020,6 @@ data class ProxmoxVncTicketData(
      * Builds the Proxmox noVNC URL. The `PVEAuthCookie` from [authCookie] must be stored for
      * [baseUrl] before this URL is loaded, otherwise Proxmox answers with its login screen.
      */
-    fun buildConsoleUrl(): String {
-        return "$baseUrl/?console=${if (isQemu) "kvm" else "lxc"}&novnc=1&vmid=$vmid&node=$node&resize=off"
-    }
+    fun buildConsoleUrl(): String =
+        ProxmoxConsoleSupport.consoleUrl(baseUrl, node, vmid, isQemu)
 }

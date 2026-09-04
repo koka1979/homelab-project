@@ -1586,6 +1586,7 @@
     <string name="linux_update_confirm_action_message">Diese Aktion ändert Pakete oder den Systemstatus und wird im lokalen Audit-Protokoll erfasst.</string>
     <string name="game_server_confirm_action">%1$s bestätigen?</string>
     <string name="game_server_confirm_action_message">Diese Aktion ändert den Game-Server-Status und wird im lokalen Audit-Protokoll erfasst.</string>
+    <string name="proxmox_console_open_in_browser">Im Browser öffnen</string>
     <string name="proxmox_console_missing_url">Für diese Proxmox-Instanz ist keine URL hinterlegt, die Konsole kann daher nicht geöffnet werden.</string>
     <string name="proxmox_console_requires_login_ticket">Die eingebaute Konsole benötigt ein Proxmox-Login-Ticket. API-Tokens werden nur von der REST-API akzeptiert – lege die Instanz mit Benutzername und Passwort an oder öffne die Konsole in der Proxmox-Weboberfläche.</string>
     <string name="proxmox_console_missing_session">Keine aktive Proxmox-Sitzung. Melde dich erneut an dieser Instanz an und öffne die Konsole neu.</string>

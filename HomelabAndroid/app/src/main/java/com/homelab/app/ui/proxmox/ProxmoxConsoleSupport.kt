@@ -36,6 +36,12 @@ object ProxmoxConsoleSupport {
         return "$scheme://$authority"
     }
 
+    /** URL of the Proxmox noVNC page for one guest. */
+    fun consoleUrl(baseUrl: String, node: String, vmid: Int, isQemu: Boolean): String {
+        val root = baseUrl.trimEnd('/')
+        return "$root/?console=${if (isQemu) "kvm" else "lxc"}&novnc=1&vmid=$vmid&node=$node&resize=off"
+    }
+
     /** The `Set-Cookie` style value handed to [android.webkit.CookieManager]. */
     fun cookieValue(authCookie: String, baseUrl: String): String {
         val secure = if (baseUrl.trim().startsWith("https", ignoreCase = true)) "; Secure" else ""

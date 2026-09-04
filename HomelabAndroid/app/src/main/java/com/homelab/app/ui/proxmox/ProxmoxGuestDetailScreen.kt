@@ -826,6 +826,7 @@ private fun GuestConsoleTab(
 ) {
     var consoleInitialized by remember { mutableStateOf(false) }
     val vncTicketState by viewModel.vncTicketState.collectAsStateWithLifecycle()
+    val consoleBrowserUrl by viewModel.consoleBrowserUrl.collectAsStateWithLifecycle()
     var webViewReady by remember { mutableStateOf(false) }
     var loadingError by remember { mutableStateOf<String?>(null) }
     var sslError by remember { mutableStateOf(false) }
@@ -838,6 +839,12 @@ private fun GuestConsoleTab(
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    fun openInBrowser(url: String) {
+        context.startActivity(
+            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+        )
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (onNavigateToFullConsole != null) {
@@ -880,10 +887,19 @@ private fun GuestConsoleTab(
                         Spacer(Modifier.height(8.dp))
                         Text(state.message, color = Color.Gray, fontSize = 14.sp)
                         Spacer(Modifier.height(24.dp))
-                        Button(onClick = { viewModel.fetchVncTicket(node, vmid, isQemu) }) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Retry")
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedButton(onClick = { viewModel.fetchVncTicket(node, vmid, isQemu) }) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Retry")
+                            }
+                            consoleBrowserUrl?.let { url ->
+                                Button(onClick = { openInBrowser(url) }) {
+                                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.proxmox_console_open_in_browser))
+                                }
+                            }
                         }
                     }
                 }
@@ -906,8 +922,15 @@ private fun GuestConsoleTab(
                                 fontSize = 14.sp
                             )
                             Spacer(Modifier.height(24.dp))
-                            Button(onClick = { viewModel.fetchVncTicket(node, vmid, isQemu); sslError = false }) {
-                                Text("Retry")
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(onClick = { viewModel.fetchVncTicket(node, vmid, isQemu); sslError = false }) {
+                                    Text("Retry")
+                                }
+                                consoleBrowserUrl?.let { url ->
+                                    Button(onClick = { openInBrowser(url) }) {
+                                        Text(stringResource(R.string.proxmox_console_open_in_browser))
+                                    }
+                                }
                             }
                         }
                     } else if (loadingError != null) {
@@ -922,8 +945,15 @@ private fun GuestConsoleTab(
                             Spacer(Modifier.height(8.dp))
                             Text(loadingError!!, color = Color.Gray, fontSize = 14.sp)
                             Spacer(Modifier.height(24.dp))
-                            Button(onClick = { viewModel.fetchVncTicket(node, vmid, isQemu); loadingError = null }) {
-                                Text("Retry")
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(onClick = { viewModel.fetchVncTicket(node, vmid, isQemu); loadingError = null }) {
+                                    Text("Retry")
+                                }
+                                consoleBrowserUrl?.let { url ->
+                                    Button(onClick = { openInBrowser(url) }) {
+                                        Text(stringResource(R.string.proxmox_console_open_in_browser))
+                                    }
+                                }
                             }
                         }
                     } else {

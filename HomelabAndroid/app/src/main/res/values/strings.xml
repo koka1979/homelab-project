@@ -1592,6 +1592,7 @@
     <string name="proxmox_description">Description</string>
     <string name="proxmox_console">Console</string>
     <string name="proxmox_failed_fetch_vnc_ticket">Failed to fetch VNC ticket</string>
+    <string name="proxmox_console_open_in_browser">Open in browser</string>
     <string name="proxmox_console_missing_url">This Proxmox instance has no URL configured, so the console cannot be opened.</string>
     <string name="proxmox_console_requires_login_ticket">The built-in console needs a Proxmox login ticket. API tokens are only accepted by the REST API, so add this instance with username and password or open the console in the Proxmox web interface.</string>
     <string name="proxmox_console_missing_session">No active Proxmox session. Sign in to this instance again and reopen the console.</string>

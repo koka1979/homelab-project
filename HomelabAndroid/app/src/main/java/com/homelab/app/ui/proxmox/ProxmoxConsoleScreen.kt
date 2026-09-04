@@ -40,6 +40,7 @@ fun ProxmoxConsoleScreen(
     viewModel: ProxmoxViewModel = hiltViewModel()
 ) {
     val vncTicketState by viewModel.vncTicketState.collectAsStateWithLifecycle()
+    val consoleBrowserUrl by viewModel.consoleBrowserUrl.collectAsStateWithLifecycle()
     var webViewReady by remember { mutableStateOf(false) }
     var loadingError by remember { mutableStateOf<String?>(null) }
     var sslError by remember { mutableStateOf(false) }
@@ -51,10 +52,10 @@ fun ProxmoxConsoleScreen(
         viewModel.fetchVncTicket(node, vmid, isQemu)
     }
 
-    fun openInBrowser(ticketData: ProxmoxVncTicketData) {
+    fun openInBrowser(url: String) {
         // The external browser does not share the WebView cookie jar; Proxmox shows its login
         // screen first and opens the console afterwards.
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ticketData.buildConsoleUrl()))
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
         context.startActivity(intent)
     }
 
@@ -75,10 +76,12 @@ fun ProxmoxConsoleScreen(
                     }
                 },
                 actions = {
-                    if (vncTicketState is UiState.Success) {
-                        val ticketData = (vncTicketState as UiState.Success<ProxmoxVncTicketData>).data
-                        IconButton(onClick = { openInBrowser(ticketData) }) {
-                            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Open in Browser")
+                    consoleBrowserUrl?.let { url ->
+                        IconButton(onClick = { openInBrowser(url) }) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.OpenInNew,
+                                contentDescription = stringResource(R.string.proxmox_console_open_in_browser)
+                            )
                         }
                     }
                     IconButton(onClick = { retryConsole() }) {
@@ -125,10 +128,19 @@ fun ProxmoxConsoleScreen(
                         Spacer(Modifier.height(8.dp))
                         Text(state.message, color = Color.Gray, fontSize = 14.sp)
                         Spacer(Modifier.height(24.dp))
-                        Button(onClick = { viewModel.fetchVncTicket(node, vmid, isQemu) }) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Retry")
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedButton(onClick = { retryConsole() }) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Retry")
+                            }
+                            consoleBrowserUrl?.let { url ->
+                                Button(onClick = { openInBrowser(url) }) {
+                                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.proxmox_console_open_in_browser))
+                                }
+                            }
                         }
                     }
                 }
@@ -170,10 +182,10 @@ fun ProxmoxConsoleScreen(
                                     Spacer(Modifier.width(8.dp))
                                     Text("Retry")
                                 }
-                                Button(onClick = { openInBrowser(ticketData) }) {
+                                Button(onClick = { openInBrowser(consoleBrowserUrl ?: ticketData.buildConsoleUrl()) }) {
                                     Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Open in Browser")
+                                    Text(stringResource(R.string.proxmox_console_open_in_browser))
                                 }
                             }
                         }
@@ -200,10 +212,10 @@ fun ProxmoxConsoleScreen(
                                 OutlinedButton(onClick = { retryConsole() }) {
                                     Text("Retry")
                                 }
-                                Button(onClick = { openInBrowser(ticketData) }) {
+                                Button(onClick = { openInBrowser(consoleBrowserUrl ?: ticketData.buildConsoleUrl()) }) {
                                     Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Open in Browser")
+                                    Text(stringResource(R.string.proxmox_console_open_in_browser))
                                 }
                             }
                         }
