@@ -5,8 +5,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.homelab.app.R
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardAddPeerRequest
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardConfigurationDetail
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardOverview
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeerFile
 import com.homelab.app.data.repository.ServicesRepository
 import com.homelab.app.data.repository.WgDashboardAction
 import com.homelab.app.data.repository.WgDashboardRepository
@@ -42,7 +44,16 @@ data class PendingWgDashboardAction(
     val action: WgDashboardAction,
     val configurationName: String,
     val peerIds: List<String> = emptyList(),
-    val targetLabel: String
+    val targetLabel: String,
+    val newPeer: WgDashboardAddPeerRequest? = null
+)
+
+/** The state behind the "add peer" dialog of one tunnel. */
+data class WgDashboardAddPeerState(
+    val configurationName: String,
+    val availableIps: List<String> = emptyList(),
+    val isLoading: Boolean = true,
+    val error: String? = null
 )
 
 @HiltViewModel
@@ -68,6 +79,20 @@ class WgDashboardViewModel @Inject constructor(
 
     private val _peerState = MutableStateFlow<UiState<WgDashboardConfigurationDetail>>(UiState.Idle)
     val peerState: StateFlow<UiState<WgDashboardConfigurationDetail>> = _peerState.asStateFlow()
+
+    /** Non-null while the "add peer" dialog of a tunnel is open. */
+    private val _addPeerState = MutableStateFlow<WgDashboardAddPeerState?>(null)
+    val addPeerState: StateFlow<WgDashboardAddPeerState?> = _addPeerState.asStateFlow()
+
+    /**
+     * The configuration shown as a QR code. It contains the peer's private key, so it is only
+     * ever held in memory and cleared as soon as the sheet is closed.
+     */
+    private val _peerConfiguration = MutableStateFlow<WgDashboardPeerFile?>(null)
+    val peerConfiguration: StateFlow<WgDashboardPeerFile?> = _peerConfiguration.asStateFlow()
+
+    private val _isLoadingPeerConfiguration = MutableStateFlow(false)
+    val isLoadingPeerConfiguration: StateFlow<Boolean> = _isLoadingPeerConfiguration.asStateFlow()
 
     /** Identifies the target currently running an action, so only its controls show a spinner. */
     private val _busyTarget = MutableStateFlow<String?>(null)
@@ -145,6 +170,52 @@ class WgDashboardViewModel @Inject constructor(
         }
     }
 
+    /** Opens the dialog and loads the addresses the tunnel still has free. */
+    fun openAddPeer(configurationName: String) {
+        _addPeerState.value = WgDashboardAddPeerState(configurationName = configurationName)
+        viewModelScope.launch {
+            try {
+                val ips = repository.getAvailableIps(instanceId, configurationName)
+                _addPeerState.value = _addPeerState.value
+                    ?.takeIf { it.configurationName == configurationName }
+                    ?.copy(availableIps = ips, isLoading = false)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                // A tunnel whose free addresses cannot be listed can still take a peer with a
+                // hand-typed address, so the dialog stays open and only loses its suggestion.
+                _addPeerState.value = _addPeerState.value
+                    ?.takeIf { it.configurationName == configurationName }
+                    ?.copy(isLoading = false, error = ErrorHandler.getMessage(context, error))
+            }
+        }
+    }
+
+    fun dismissAddPeer() {
+        _addPeerState.value = null
+    }
+
+    /** Loads the client configuration of a peer so it can be shown as a QR code. */
+    fun showPeerConfiguration(configurationName: String, peerId: String) {
+        viewModelScope.launch {
+            _isLoadingPeerConfiguration.value = true
+            try {
+                _peerConfiguration.value =
+                    repository.getPeerConfiguration(instanceId, configurationName, peerId)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _messages.emit(ErrorHandler.getMessage(context, error))
+            } finally {
+                _isLoadingPeerConfiguration.value = false
+            }
+        }
+    }
+
+    fun dismissPeerConfiguration() {
+        _peerConfiguration.value = null
+    }
+
     /**
      * Runs [action] through the controlled-action pipeline. Anything above LOW risk is rejected
      * by policy until the caller passes [confirmed], which the dashboard only does after the
@@ -205,6 +276,18 @@ class WgDashboardViewModel @Inject constructor(
             WgDashboardAction.TUNNEL_START,
             WgDashboardAction.TUNNEL_STOP ->
                 repository.toggleConfiguration(instanceId, action.configurationName)
+            WgDashboardAction.PEER_CREATE -> {
+                val request = requireNotNull(action.newPeer) { "Creating a peer needs its data" }
+                val created = repository.createPeer(instanceId, action.configurationName, request)
+                _addPeerState.value = null
+                // Show the finished configuration right away: this is the only moment the
+                // private key is available, and the QR code is how the peer reaches a phone.
+                _peerConfiguration.value = runCatching {
+                    repository.getPeerConfiguration(instanceId, action.configurationName, created.id)
+                }.getOrNull()
+            }
+            WgDashboardAction.PEER_DELETE ->
+                repository.deletePeers(instanceId, action.configurationName, action.peerIds)
             WgDashboardAction.PEER_RESTRICT ->
                 repository.restrictPeers(instanceId, action.configurationName, action.peerIds)
             WgDashboardAction.PEER_ALLOW ->
@@ -215,6 +298,9 @@ class WgDashboardViewModel @Inject constructor(
     private fun targetRef(action: PendingWgDashboardAction): String = when (action.action) {
         WgDashboardAction.TUNNEL_START,
         WgDashboardAction.TUNNEL_STOP -> "tunnel/${action.configurationName.lowercase()}"
+        WgDashboardAction.PEER_CREATE ->
+            "tunnel/${action.configurationName.lowercase()}/peer/${action.newPeer?.name.orEmpty().lowercase()}"
+        WgDashboardAction.PEER_DELETE,
         WgDashboardAction.PEER_RESTRICT,
         WgDashboardAction.PEER_ALLOW ->
             "tunnel/${action.configurationName.lowercase()}/peer/${action.peerIds.firstOrNull().orEmpty().lowercase()}"
@@ -222,7 +308,9 @@ class WgDashboardViewModel @Inject constructor(
 
     private fun busyKeyOf(action: PendingWgDashboardAction): String = when (action.action) {
         WgDashboardAction.TUNNEL_START,
-        WgDashboardAction.TUNNEL_STOP -> action.configurationName
+        WgDashboardAction.TUNNEL_STOP,
+        WgDashboardAction.PEER_CREATE -> action.configurationName
+        WgDashboardAction.PEER_DELETE,
         WgDashboardAction.PEER_RESTRICT,
         WgDashboardAction.PEER_ALLOW -> action.peerIds.firstOrNull() ?: action.configurationName
     }

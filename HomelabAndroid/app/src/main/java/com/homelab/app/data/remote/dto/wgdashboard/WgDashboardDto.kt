@@ -146,6 +146,30 @@ data class WgDashboardPeersRequest(
     val peers: List<String>
 )
 
+/**
+ * Body of `addPeers`. Leaving both key fields out is deliberate: WGDashboard then generates the
+ * key pair on the server, so the private key never has to be produced on the phone.
+ *
+ * A blank [dns] or a null [mtu]/[keepalive] makes the server fall back to the defaults configured
+ * in the dashboard, which is what the web UI does for an untouched field.
+ */
+@Serializable
+data class WgDashboardAddPeerRequest(
+    val name: String,
+    @SerialName("allowed_ips") val allowedIps: List<String>,
+    @SerialName("DNS") val dns: String? = null,
+    val mtu: Int? = null,
+    val keepalive: Int? = null,
+    val notes: String? = null
+)
+
+/** A ready-to-use WireGuard client configuration as served by `downloadPeer`. */
+@Serializable
+data class WgDashboardPeerFile(
+    val fileName: String = "",
+    val file: String = ""
+)
+
 // ---------- UI models ----------
 
 /**

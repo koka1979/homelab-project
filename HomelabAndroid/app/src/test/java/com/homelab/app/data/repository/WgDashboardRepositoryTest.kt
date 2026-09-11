@@ -2,13 +2,16 @@ package com.homelab.app.data.repository
 
 import com.homelab.app.data.remote.TlsClientSelector
 import com.homelab.app.data.remote.api.WgDashboardApi
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardAddPeerRequest
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardConfiguration
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardConfigurationDetail
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeer
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeerFile
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeersRequest
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardResponse
 import io.mockk.mockk
 import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
 import junit.framework.TestCase.fail
@@ -49,10 +52,22 @@ class WgDashboardRepositoryTest {
         },
         private val peerAction: () -> WgDashboardResponse<JsonElement> = {
             WgDashboardResponse(status = true)
+        },
+        private val addPeer: () -> WgDashboardResponse<List<WgDashboardPeer>> = {
+            WgDashboardResponse(status = true, data = listOf(WgDashboardPeer(id = "NEWKEY", name = "phone")))
+        },
+        private val availableIps: () -> WgDashboardResponse<Map<String, List<String>>> = {
+            WgDashboardResponse(status = true, data = emptyMap())
+        },
+        private val peerFile: () -> WgDashboardResponse<WgDashboardPeerFile> = {
+            WgDashboardResponse(status = true, data = WgDashboardPeerFile("phone", "[Interface]"))
         }
     ) : WgDashboardApi {
         val restricted = mutableListOf<Pair<String, List<String>>>()
         val allowed = mutableListOf<Pair<String, List<String>>>()
+        val deleted = mutableListOf<Pair<String, List<String>>>()
+        val addRequests = mutableListOf<Pair<String, WgDashboardAddPeerRequest>>()
+        var downloadedPeer: Pair<String, String>? = null
         var toggledConfiguration: String? = null
 
         override suspend fun getConfigurations(instanceId: String) = configurations()
@@ -64,6 +79,35 @@ class WgDashboardRepositoryTest {
         override suspend fun toggleConfiguration(instanceId: String, configurationName: String): WgDashboardResponse<Boolean> {
             toggledConfiguration = configurationName
             return toggle()
+        }
+
+        override suspend fun addPeer(
+            instanceId: String,
+            configName: String,
+            body: WgDashboardAddPeerRequest
+        ): WgDashboardResponse<List<WgDashboardPeer>> {
+            addRequests += configName to body
+            return addPeer()
+        }
+
+        override suspend fun getAvailableIps(instanceId: String, configName: String) = availableIps()
+
+        override suspend fun downloadPeer(
+            instanceId: String,
+            configName: String,
+            peerId: String
+        ): WgDashboardResponse<WgDashboardPeerFile> {
+            downloadedPeer = configName to peerId
+            return peerFile()
+        }
+
+        override suspend fun deletePeers(
+            instanceId: String,
+            configName: String,
+            body: WgDashboardPeersRequest
+        ): WgDashboardResponse<JsonElement> {
+            deleted += configName to body.peers
+            return peerAction()
         }
 
         override suspend fun restrictPeers(
@@ -210,6 +254,111 @@ class WgDashboardRepositoryTest {
 
         assertEquals("phone", detail.configurationPeers.single().displayName)
         assertEquals(1, detail.configurationRestrictedPeers.size)
+    }
+
+    @Test
+    fun `creating a peer sends no key material so the server generates it`() = runTest {
+        val api = FakeWgDashboardApi()
+
+        val created = repository(api).createPeer(
+            "instance",
+            "wg0",
+            WgDashboardAddPeerRequest(name = "phone", allowedIps = listOf("10.0.0.2"))
+        )
+
+        val (configName, request) = api.addRequests.single()
+        assertEquals("wg0", configName)
+        assertEquals("phone", request.name)
+        assertEquals(listOf("10.0.0.2"), request.allowedIps)
+        // Nothing in the request may carry a key: that is what makes the server generate one.
+        val encoded = Json.encodeToString(WgDashboardAddPeerRequest.serializer(), request)
+        assertFalse(encoded.contains("key"))
+        assertEquals("NEWKEY", created.id)
+    }
+
+    @Test
+    fun `a peer without a name or address never reaches the server`() = runTest {
+        val api = FakeWgDashboardApi()
+        val repository = repository(api)
+
+        try {
+            repository.createPeer("instance", "wg0", WgDashboardAddPeerRequest(" ", listOf("10.0.0.2")))
+            fail("expected a blank name to be rejected")
+        } catch (error: IllegalArgumentException) {
+            // expected
+        }
+        try {
+            repository.createPeer("instance", "wg0", WgDashboardAddPeerRequest("phone", emptyList()))
+            fail("expected a missing address to be rejected")
+        } catch (error: IllegalArgumentException) {
+            // expected
+        }
+        assertTrue(api.addRequests.isEmpty())
+    }
+
+    @Test
+    fun `a duplicate peer keeps the server's explanation`() = runTest {
+        val api = FakeWgDashboardApi(
+            addPeer = { WgDashboardResponse(status = false, message = "This peer already exist") }
+        )
+
+        try {
+            repository(api).createPeer(
+                "instance",
+                "wg0",
+                WgDashboardAddPeerRequest(name = "phone", allowedIps = listOf("10.0.0.2"))
+            )
+            fail("expected the refusal to surface")
+        } catch (error: WgDashboardApiException) {
+            assertEquals("This peer already exist", error.detail)
+        }
+    }
+
+    @Test
+    fun `free addresses are flattened across the subnets`() = runTest {
+        val api = FakeWgDashboardApi(
+            availableIps = {
+                WgDashboardResponse(
+                    status = true,
+                    data = linkedMapOf(
+                        "10.0.0.1/24" to listOf("10.0.0.2", "10.0.0.3"),
+                        "fd00::1/64" to listOf("fd00::2")
+                    )
+                )
+            }
+        )
+
+        assertEquals(
+            listOf("10.0.0.2", "10.0.0.3", "fd00::2"),
+            repository(api).getAvailableIps("instance", "wg0")
+        )
+    }
+
+    @Test
+    fun `the peer configuration is fetched for the right peer`() = runTest {
+        val api = FakeWgDashboardApi(
+            peerFile = {
+                WgDashboardResponse(
+                    status = true,
+                    data = WgDashboardPeerFile("phone", "[Interface]\nPrivateKey = abc")
+                )
+            }
+        )
+
+        val file = repository(api).getPeerConfiguration("instance", "wg0", "NEWKEY")
+
+        assertEquals("wg0" to "NEWKEY", api.downloadedPeer)
+        assertEquals("phone", file.fileName)
+        assertTrue(file.file.contains("PrivateKey"))
+    }
+
+    @Test
+    fun `deleting a peer sends its public key`() = runTest {
+        val api = FakeWgDashboardApi()
+
+        repository(api).deletePeers("instance", "wg0", listOf("KEY1"))
+
+        assertEquals(listOf("wg0" to listOf("KEY1")), api.deleted)
     }
 
     @Test

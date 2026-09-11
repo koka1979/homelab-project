@@ -2,9 +2,12 @@ package com.homelab.app.data.repository
 
 import com.homelab.app.data.remote.TlsClientSelector
 import com.homelab.app.data.remote.api.WgDashboardApi
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardAddPeerRequest
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardConfiguration
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardConfigurationDetail
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardOverview
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeer
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeerFile
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeersRequest
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardResponse
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardSection
@@ -41,6 +44,8 @@ import retrofit2.HttpException
 enum class WgDashboardAction(val actionId: String, val risk: ActionRisk) {
     TUNNEL_START("wireguard.tunnel.start", ActionRisk.MEDIUM),
     TUNNEL_STOP("wireguard.tunnel.stop", ActionRisk.HIGH),
+    PEER_CREATE("wireguard.peer.create", ActionRisk.MEDIUM),
+    PEER_DELETE("wireguard.peer.delete", ActionRisk.HIGH),
     PEER_RESTRICT("wireguard.peer.restrict", ActionRisk.MEDIUM),
     PEER_ALLOW("wireguard.peer.allow", ActionRisk.MEDIUM);
 
@@ -218,6 +223,55 @@ class WgDashboardRepository @Inject constructor(
     /** Toggles the tunnel and returns the status the server reports afterwards. */
     suspend fun toggleConfiguration(instanceId: String, configurationName: String): Boolean =
         call { api.toggleConfiguration(instanceId, configurationName) }.data ?: false
+
+    /**
+     * Creates a peer and returns it. The request carries no key material, so WGDashboard
+     * generates the key pair itself; [WgDashboardAddPeerRequest] explains why.
+     *
+     * Note that the server starts a stopped tunnel when a peer is added to it - that is
+     * WGDashboard's own behaviour, not something the app asks for.
+     */
+    suspend fun createPeer(
+        instanceId: String,
+        configurationName: String,
+        request: WgDashboardAddPeerRequest
+    ): WgDashboardPeer {
+        require(request.name.isNotBlank()) { "A peer name is required" }
+        require(request.allowedIps.isNotEmpty()) { "An address is required" }
+        val created = payload { api.addPeer(instanceId, configurationName, request) }.orEmpty()
+        return created.firstOrNull()
+            ?: throw WgDashboardApiException(
+                WgDashboardApiException.Kind.SERVER_ERROR,
+                "The server accepted the peer but returned none"
+            )
+    }
+
+    /**
+     * The addresses the tunnel still has free, in the order the server offers them. The map is
+     * keyed by subnet; the app only needs the flat list to suggest the next address.
+     */
+    suspend fun getAvailableIps(instanceId: String, configurationName: String): List<String> =
+        payload { api.getAvailableIps(instanceId, configurationName) }
+            .orEmpty()
+            .values
+            .flatten()
+
+    /** The client configuration of one peer, ready to be shown as a QR code. */
+    suspend fun getPeerConfiguration(
+        instanceId: String,
+        configurationName: String,
+        peerId: String
+    ): WgDashboardPeerFile =
+        payload { api.downloadPeer(instanceId, configurationName, peerId) }
+            ?: throw WgDashboardApiException(
+                WgDashboardApiException.Kind.SERVER_ERROR,
+                "The server returned no configuration for this peer"
+            )
+
+    suspend fun deletePeers(instanceId: String, configurationName: String, peerIds: List<String>) {
+        require(peerIds.isNotEmpty()) { "At least one peer is required" }
+        call { api.deletePeers(instanceId, configurationName, WgDashboardPeersRequest(peerIds)) }
+    }
 
     suspend fun restrictPeers(instanceId: String, configurationName: String, peerIds: List<String>) {
         require(peerIds.isNotEmpty()) { "At least one peer is required" }

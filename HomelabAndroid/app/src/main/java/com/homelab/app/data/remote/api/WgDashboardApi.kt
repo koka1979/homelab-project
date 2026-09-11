@@ -1,7 +1,10 @@
 package com.homelab.app.data.remote.api
 
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardAddPeerRequest
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardConfiguration
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardConfigurationDetail
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeer
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeerFile
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeersRequest
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardResponse
 import kotlinx.serialization.json.JsonElement
@@ -45,6 +48,44 @@ interface WgDashboardApi {
         @Header("X-Homelab-Instance-Id") instanceId: String,
         @Query("configurationName") configurationName: String
     ): WgDashboardResponse<Boolean>
+
+    /**
+     * Creates a peer. Without a key in the body WGDashboard generates the pair itself and
+     * answers with the peers it created.
+     */
+    @Headers("Accept: application/json")
+    @POST("api/addPeers/{configName}")
+    suspend fun addPeer(
+        @Header("X-Homelab-Instance-Id") instanceId: String,
+        @Path("configName") configName: String,
+        @Body body: WgDashboardAddPeerRequest
+    ): WgDashboardResponse<List<WgDashboardPeer>>
+
+    /** The free addresses of a tunnel, grouped by the subnet they belong to. */
+    @Headers("Accept: application/json")
+    @GET("api/getAvailableIPs/{configName}")
+    suspend fun getAvailableIps(
+        @Header("X-Homelab-Instance-Id") instanceId: String,
+        @Path("configName") configName: String
+    ): WgDashboardResponse<Map<String, List<String>>>
+
+    /** The finished client configuration of one peer, including its private key. */
+    @Headers("Accept: application/json")
+    @GET("api/downloadPeer/{configName}")
+    suspend fun downloadPeer(
+        @Header("X-Homelab-Instance-Id") instanceId: String,
+        @Path("configName") configName: String,
+        @Query("id") peerId: String
+    ): WgDashboardResponse<WgDashboardPeerFile>
+
+    /** Removes the given peers from the tunnel for good. */
+    @Headers("Accept: application/json")
+    @POST("api/deletePeers/{configName}")
+    suspend fun deletePeers(
+        @Header("X-Homelab-Instance-Id") instanceId: String,
+        @Path("configName") configName: String,
+        @Body body: WgDashboardPeersRequest
+    ): WgDashboardResponse<JsonElement>
 
     /** Blocks the given peers without deleting them. */
     @Headers("Accept: application/json")

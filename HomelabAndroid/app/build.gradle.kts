@@ -14,8 +14,8 @@ android {
         applicationId = "com.homelab.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 43
-        versionName = "1.8.0"
+        versionCode = 44
+        versionName = "1.8.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         vectorDrawables {
@@ -130,6 +130,9 @@ dependencies {
 
     // Markdown Parser
     implementation("com.github.jeziellago:compose-markdown:0.5.4")
+
+    // QR codes (WireGuard peer configurations)
+    implementation("com.google.zxing:core:3.5.3")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
