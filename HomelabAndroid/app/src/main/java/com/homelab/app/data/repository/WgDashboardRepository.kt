@@ -11,6 +11,7 @@ import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeerFile
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeersRequest
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardResponse
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardSection
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardSystemStatus
 import com.homelab.app.domain.action.ActionRisk
 import com.homelab.app.domain.action.ControlledActionRequest
 import com.homelab.app.domain.provider.ProviderHealth
@@ -185,6 +186,14 @@ class WgDashboardRepository @Inject constructor(
             }
         )
     }
+
+    /** Load of the machine WGDashboard runs on, for the card above the tunnel list. */
+    suspend fun getSystemStatus(instanceId: String): WgDashboardSystemStatus =
+        payload { api.getSystemStatus(instanceId) }
+            ?: throw WgDashboardApiException(
+                WgDashboardApiException.Kind.SERVER_ERROR,
+                "The server returned no system status"
+            )
 
     suspend fun getConfigurationDetail(
         instanceId: String,

@@ -50,6 +50,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -88,6 +89,7 @@ import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardConfigurationDetai
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardAddPeerRequest
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardOverview
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeerFile
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardSystemStatus
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeer
 import com.homelab.app.data.repository.WgDashboardAction
 import com.homelab.app.ui.common.ErrorScreen
@@ -112,6 +114,7 @@ fun WgDashboardScreen(
     val addPeerState by viewModel.addPeerState.collectAsStateWithLifecycle()
     val peerConfiguration by viewModel.peerConfiguration.collectAsStateWithLifecycle()
     val isLoadingPeerConfiguration by viewModel.isLoadingPeerConfiguration.collectAsStateWithLifecycle()
+    val systemState by viewModel.systemState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val currentInstance = instances.find { it.id == viewModel.instanceId }
@@ -186,6 +189,7 @@ fun WgDashboardScreen(
                 ) {
                     WgDashboardContent(
                         overview = current.data,
+                        systemStatus = (systemState as? UiState.Success)?.data,
                         busyTarget = busyTarget,
                         selectedConfiguration = selectedConfiguration,
                         peerState = peerState,
@@ -289,6 +293,7 @@ private fun shareConfiguration(context: Context, configuration: WgDashboardPeerF
 @Composable
 private fun WgDashboardContent(
     overview: WgDashboardOverview,
+    systemStatus: WgDashboardSystemStatus?,
     busyTarget: String?,
     selectedConfiguration: String?,
     peerState: UiState<WgDashboardConfigurationDetail>,
@@ -302,6 +307,10 @@ private fun WgDashboardContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        systemStatus?.let { status ->
+            item { SystemStatusCard(status) }
+        }
+
         item { SummaryCard(overview) }
 
         if (overview.configurations.isEmpty()) {
@@ -324,6 +333,129 @@ private fun WgDashboardContent(
                 onAddPeer = { onAddPeer(configuration.name) },
                 onShowPeerConfiguration = { peerId -> onShowPeerConfiguration(configuration.name, peerId) },
                 onAction = onAction
+            )
+        }
+    }
+}
+
+@Composable
+private fun SystemStatusCard(status: WgDashboardSystemStatus) {
+    val memory = status.memory?.virtual
+    val swap = status.memory?.swap
+    val disk = status.primaryDisk
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                MetricGauge(
+                    label = stringResource(R.string.wgdashboard_system_cpu),
+                    percent = status.cpu?.percent ?: 0.0,
+                    caption = status.cpu?.perCpu
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { stringResource(R.string.wgdashboard_system_cores, it.size) },
+                    perUnit = status.cpu?.perCpu.orEmpty(),
+                    modifier = Modifier.weight(1f)
+                )
+                MetricGauge(
+                    label = stringResource(R.string.wgdashboard_system_storage),
+                    percent = disk?.percent ?: 0.0,
+                    caption = disk?.let {
+                        stringResource(
+                            R.string.wgdashboard_system_usage,
+                            formatBytes(it.used),
+                            formatBytes(it.total)
+                        )
+                    },
+                    perUnit = status.disks.map { it.percent },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                MetricGauge(
+                    label = stringResource(R.string.wgdashboard_system_memory),
+                    percent = memory?.percent ?: 0.0,
+                    caption = memory?.let {
+                        stringResource(
+                            R.string.wgdashboard_system_usage,
+                            formatBytes(it.used),
+                            formatBytes(it.total)
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                MetricGauge(
+                    label = stringResource(R.string.wgdashboard_system_swap),
+                    percent = swap?.percent ?: 0.0,
+                    caption = swap?.let {
+                        stringResource(
+                            R.string.wgdashboard_system_usage,
+                            formatBytes(it.used),
+                            formatBytes(it.total)
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One reading of the system card: a percentage with its bar, an optional caption and - for CPU
+ * cores and disks - a small bar per unit, the way the web UI shows them.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MetricGauge(
+    label: String,
+    percent: Double,
+    caption: String?,
+    modifier: Modifier = Modifier,
+    perUnit: List<Double> = emptyList()
+) {
+    val fraction = (percent / 100.0).coerceIn(0.0, 1.0).toFloat()
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = String.format(Locale.US, "%.1f%%", percent),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        LinearProgressIndicator(
+            progress = { fraction },
+            modifier = Modifier.fillMaxWidth().height(6.dp),
+            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
+            gapSize = 0.dp,
+            drawStopIndicator = {}
+        )
+        if (perUnit.size > 1) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                perUnit.forEach { unit ->
+                    LinearProgressIndicator(
+                        progress = { (unit / 100.0).coerceIn(0.0, 1.0).toFloat() },
+                        modifier = Modifier.width(16.dp).height(4.dp),
+                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
+                        gapSize = 0.dp,
+                        drawStopIndicator = {}
+                    )
+                }
+            }
+        }
+        caption?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -711,6 +843,19 @@ private fun StatusDot(active: Boolean) {
         color = if (active) Color(0xFF22C55E) else MaterialTheme.colorScheme.outline,
         modifier = Modifier.size(10.dp)
     ) {}
+}
+
+/** Byte counts from the system endpoint, rendered the way a file manager would. */
+internal fun formatBytes(value: Long): String {
+    if (value <= 0L) return "0 B"
+    val units = listOf("B", "KB", "MB", "GB", "TB", "PB")
+    var remaining = value.toDouble()
+    var unitIndex = 0
+    while (remaining >= 1024.0 && unitIndex < units.lastIndex) {
+        remaining /= 1024.0
+        unitIndex++
+    }
+    return String.format(Locale.US, "%.1f %s", remaining, units[unitIndex])
 }
 
 /** WGDashboard reports traffic in gigabytes; small values read better as megabytes. */

@@ -170,6 +170,57 @@ data class WgDashboardPeerFile(
     val file: String = ""
 )
 
+// ---------- System status ----------
+
+/**
+ * What `systemStatus` reports about the machine WGDashboard runs on - the same numbers the web
+ * UI shows above the tunnel list.
+ *
+ * The endpoint measures CPU load over a full second and walks the process table, so it takes a
+ * moment to answer and is loaded next to the tunnel list rather than in front of it.
+ */
+@Serializable
+data class WgDashboardSystemStatus(
+    @SerialName("CPU") val cpu: WgDashboardCpu? = null,
+    @SerialName("Memory") val memory: WgDashboardMemorySection? = null,
+    @SerialName("Disks") val disks: List<WgDashboardDisk> = emptyList()
+) {
+    /** The disk the web UI leads with: the biggest mounted volume. */
+    val primaryDisk: WgDashboardDisk? get() = disks.maxByOrNull { it.total }
+}
+
+@Serializable
+data class WgDashboardCpu(
+    @SerialName("cpu_percent")
+    @Serializable(with = LenientDoubleSerializer::class)
+    val percent: Double = 0.0,
+    @SerialName("cpu_percent_per_cpu") val perCpu: List<Double> = emptyList()
+)
+
+@Serializable
+data class WgDashboardMemorySection(
+    @SerialName("VirtualMemory") val virtual: WgDashboardMemory? = null,
+    @SerialName("SwapMemory") val swap: WgDashboardMemory? = null
+)
+
+@Serializable
+data class WgDashboardMemory(
+    val total: Long = 0L,
+    val available: Long = 0L,
+    @Serializable(with = LenientDoubleSerializer::class) val percent: Double = 0.0
+) {
+    val used: Long get() = (total - available).coerceAtLeast(0L)
+}
+
+@Serializable
+data class WgDashboardDisk(
+    val total: Long = 0L,
+    val used: Long = 0L,
+    val free: Long = 0L,
+    @Serializable(with = LenientDoubleSerializer::class) val percent: Double = 0.0,
+    val mountPoint: String = ""
+)
+
 // ---------- UI models ----------
 
 /**
@@ -190,5 +241,6 @@ data class WgDashboardOverview(
 
 enum class WgDashboardSection {
     VERSION,
-    CONFIGURATIONS
+    CONFIGURATIONS,
+    SYSTEM
 }

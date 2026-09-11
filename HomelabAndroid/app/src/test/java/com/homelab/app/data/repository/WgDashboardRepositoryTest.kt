@@ -8,7 +8,11 @@ import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardConfigurationDetai
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeer
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeerFile
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeersRequest
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardCpu
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardMemory
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardMemorySection
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardResponse
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardSystemStatus
 import io.mockk.mockk
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
@@ -61,6 +65,9 @@ class WgDashboardRepositoryTest {
         },
         private val peerFile: () -> WgDashboardResponse<WgDashboardPeerFile> = {
             WgDashboardResponse(status = true, data = WgDashboardPeerFile("phone", "[Interface]"))
+        },
+        private val systemStatus: () -> WgDashboardResponse<WgDashboardSystemStatus> = {
+            WgDashboardResponse(status = true, data = WgDashboardSystemStatus())
         }
     ) : WgDashboardApi {
         val restricted = mutableListOf<Pair<String, List<String>>>()
@@ -75,6 +82,8 @@ class WgDashboardRepositoryTest {
         override suspend fun getConfigurationInfo(instanceId: String, configurationName: String) = detail()
 
         override suspend fun getVersion(instanceId: String) = version()
+
+        override suspend fun getSystemStatus(instanceId: String) = systemStatus()
 
         override suspend fun toggleConfiguration(instanceId: String, configurationName: String): WgDashboardResponse<Boolean> {
             toggledConfiguration = configurationName
@@ -359,6 +368,42 @@ class WgDashboardRepositoryTest {
         repository(api).deletePeers("instance", "wg0", listOf("KEY1"))
 
         assertEquals(listOf("wg0" to listOf("KEY1")), api.deleted)
+    }
+
+    @Test
+    fun `the system status is returned for the card`() = runTest {
+        val api = FakeWgDashboardApi(
+            systemStatus = {
+                WgDashboardResponse(
+                    status = true,
+                    data = WgDashboardSystemStatus(
+                        cpu = WgDashboardCpu(percent = 8.2, perCpu = listOf(4.0, 12.0)),
+                        memory = WgDashboardMemorySection(
+                            virtual = WgDashboardMemory(total = 100L, available = 93L, percent = 7.1),
+                            swap = WgDashboardMemory(total = 0L, available = 0L, percent = 0.0)
+                        )
+                    )
+                )
+            }
+        )
+
+        val status = repository(api).getSystemStatus("instance")
+
+        assertEquals(8.2, status.cpu?.percent ?: 0.0, 0.001)
+        assertEquals(2, status.cpu?.perCpu?.size)
+        assertEquals(7L, status.memory?.virtual?.used)
+    }
+
+    @Test
+    fun `a build without the system endpoint reports it instead of failing silently`() = runTest {
+        val api = FakeWgDashboardApi(systemStatus = { httpError(404, "not found") })
+
+        try {
+            repository(api).getSystemStatus("instance")
+            fail("expected the missing endpoint to surface")
+        } catch (error: WgDashboardApiException) {
+            assertEquals(WgDashboardApiException.Kind.SERVER_ERROR, error.kind)
+        }
     }
 
     @Test

@@ -1595,6 +1595,12 @@
     <string name="login_hint_wgdashboard">Gib die Dashboard-URL an (z. B. http://192.168.1.10:10086) und einen API-Key, den du in WGDashboard unter Einstellungen &#8594; API Keys anlegst. Die API muss dort ebenfalls aktiviert sein.</string>
     <string name="wgdashboard_connected_peers">verbundene Peers</string>
     <string name="wgdashboard_summary_title">WireGuard</string>
+    <string name="wgdashboard_system_cpu">CPU</string>
+    <string name="wgdashboard_system_memory">Arbeitsspeicher</string>
+    <string name="wgdashboard_system_swap">Auslagerung</string>
+    <string name="wgdashboard_system_storage">Speicher</string>
+    <string name="wgdashboard_system_cores">%1$d Kerne</string>
+    <string name="wgdashboard_system_usage">%1$s von %2$s</string>
     <string name="wgdashboard_metric_tunnels">%1$d / %2$d Tunnel aktiv</string>
     <string name="wgdashboard_metric_peers">%1$d / %2$d Peers</string>
     <string name="wgdashboard_metric_traffic">%1$s gesamt</string>

@@ -7,6 +7,7 @@ import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeer
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeerFile
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeersRequest
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardResponse
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardSystemStatus
 import kotlinx.serialization.json.JsonElement
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -34,6 +35,16 @@ interface WgDashboardApi {
         @Header("X-Homelab-Instance-Id") instanceId: String,
         @Query("configurationName") configurationName: String
     ): WgDashboardResponse<WgDashboardConfigurationDetail>
+
+    /**
+     * CPU, memory, swap and disk usage of the machine WGDashboard runs on. Answers slowly - it
+     * samples the CPU for a second - so it is never awaited before the tunnels are shown.
+     */
+    @Headers("Accept: application/json")
+    @GET("api/systemStatus")
+    suspend fun getSystemStatus(
+        @Header("X-Homelab-Instance-Id") instanceId: String
+    ): WgDashboardResponse<WgDashboardSystemStatus>
 
     @Headers("Accept: application/json")
     @GET("api/getDashboardVersion")

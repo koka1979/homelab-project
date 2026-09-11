@@ -133,6 +133,49 @@ class WgDashboardDtoTest {
     }
 
     @Test
+    fun `the system status payload of the dashboard is decoded`() {
+        // Shape as served by /api/systemStatus, including the internal key psutil's wrapper adds.
+        val status = json.decodeFromString(
+            WgDashboardResponse.serializer(WgDashboardSystemStatus.serializer()),
+            """
+            {"status":true,"message":null,"data":{
+              "CPU":{"cpu_percent":8.2,"cpu_percent_per_cpu":[4.0,12.3,6.1,10.0]},
+              "Memory":{
+                "VirtualMemory":{"__memoryType__":"virtual","total":16637231104,"available":15455993856,"percent":7.1},
+                "SwapMemory":{"__memoryType__":"swap","total":2147483648,"available":2147483648,"percent":0}
+              },
+              "Disks":[
+                {"total":250790436864,"used":63951314944,"free":174060646400,"percent":25.5,"mountPoint":"/"},
+                {"total":534765568,"used":137216000,"free":397549568,"percent":20.4,"mountPoint":"/boot"}
+              ],
+              "NetworkInterfaces":{"eth0":{"bytes_sent":1,"bytes_recv":2}},
+              "Processes":{"cpu_top_10":[],"memory_top_10":[]}
+            }}
+            """.trimIndent()
+        ).data!!
+
+        assertEquals(8.2, status.cpu?.percent ?: 0.0, 0.001)
+        assertEquals(4, status.cpu?.perCpu?.size)
+        assertEquals(7.1, status.memory?.virtual?.percent ?: 0.0, 0.001)
+        assertEquals(1181237248L, status.memory?.virtual?.used)
+        assertEquals(0.0, status.memory?.swap?.percent ?: -1.0, 0.001)
+        assertEquals(2, status.disks.size)
+        // The card leads with the biggest volume, not with whatever psutil lists first.
+        assertEquals("/", status.primaryDisk?.mountPoint)
+        assertEquals(25.5, status.primaryDisk?.percent ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun `a swap partition that does not exist reads as empty`() {
+        val memory = json.decodeFromString(
+            WgDashboardMemory.serializer(),
+            """{"total":0,"available":0,"percent":0}"""
+        )
+
+        assertEquals(0L, memory.used)
+    }
+
+    @Test
     fun `the overview totals every tunnel`() {
         val overview = WgDashboardOverview(
             version = "v4.2.3",

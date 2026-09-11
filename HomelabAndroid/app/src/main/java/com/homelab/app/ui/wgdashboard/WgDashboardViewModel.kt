@@ -9,6 +9,7 @@ import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardAddPeerRequest
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardConfigurationDetail
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardOverview
 import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardPeerFile
+import com.homelab.app.data.remote.dto.wgdashboard.WgDashboardSystemStatus
 import com.homelab.app.data.repository.ServicesRepository
 import com.homelab.app.data.repository.WgDashboardAction
 import com.homelab.app.data.repository.WgDashboardRepository
@@ -73,6 +74,14 @@ class WgDashboardViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    /**
+     * The machine's load. It is kept in its own state because the endpoint samples the CPU for a
+     * second: the tunnels are on screen long before this card fills in, and a build that does not
+     * serve it simply leaves the card out.
+     */
+    private val _systemState = MutableStateFlow<UiState<WgDashboardSystemStatus>>(UiState.Idle)
+    val systemState: StateFlow<UiState<WgDashboardSystemStatus>> = _systemState.asStateFlow()
+
     /** Peers of the tunnel the user expanded; loaded on demand, one tunnel at a time. */
     private val _selectedConfiguration = MutableStateFlow<String?>(null)
     val selectedConfiguration: StateFlow<String?> = _selectedConfiguration.asStateFlow()
@@ -103,6 +112,7 @@ class WgDashboardViewModel @Inject constructor(
 
     private var refreshJob: Job? = null
     private var peerJob: Job? = null
+    private var systemJob: Job? = null
     private var refreshRequestId: Long = 0L
 
     val instances: StateFlow<List<ServiceInstance>> = servicesRepository.instancesByType
@@ -114,6 +124,7 @@ class WgDashboardViewModel @Inject constructor(
     }
 
     fun refresh(forceLoading: Boolean = false) {
+        refreshSystemStatus()
         val requestId = ++refreshRequestId
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
@@ -135,6 +146,24 @@ class WgDashboardViewModel @Inject constructor(
                 if (requestId == refreshRequestId) {
                     _isRefreshing.value = false
                 }
+            }
+        }
+    }
+
+    private fun refreshSystemStatus() {
+        systemJob?.cancel()
+        systemJob = viewModelScope.launch {
+            if (_systemState.value !is UiState.Success) {
+                _systemState.value = UiState.Loading
+            }
+            try {
+                _systemState.value = UiState.Success(repository.getSystemStatus(instanceId))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                // The card is extra information, so a server that cannot serve it just hides it
+                // instead of taking the dashboard down with it.
+                _systemState.value = UiState.Error(ErrorHandler.getMessage(context, error))
             }
         }
     }
