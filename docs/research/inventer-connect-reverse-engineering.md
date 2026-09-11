@@ -6,6 +6,7 @@ mit dem Ziel, einen inVENTer-Lüfter aus Home Assistant zu steuern.
 
 Zielhardware in diesem Haushalt: **inVENTer Connect mit Regler ohne WLAN**
 (Basic Connect e4/e8 oder easy connect e16). Damit ist Weg B unten der relevante Pfad.
+Die PIN steht in der Anleitung des Reglers.
 
 Zweck ist Interoperabilität mit selbst betriebener Hardware. In der EU ist die
 Dekompilierung dafür durch Art. 6 der Software-Richtlinie 2009/24/EG bzw. § 69e UrhG
@@ -246,14 +247,48 @@ Für die Multi-Zonen-Variante (Momento) gilt Service
    lesend.
 4. Erst danach ein `USER_OVERRIDE` schreiben, zunächst mit kurzem `timeoutSec`, damit
    der Regler von selbst zurückfällt.
-5. Integration als HA-Custom-Component: `fan`-Entity mit Preset-Modes für die Stufen,
-   Boost als `switch`, Feuchte und Temperatur als `sensor`, alles über einen
-   gemeinsamen `DataUpdateCoordinator`.
+5. Die Integration liegt unter `homeassistant/custom_components/inventer_connect`:
+   `fan` mit Stufen 1-4 und Preset-Modes, dazu Sensoren und Binärsensoren über
+   einen gemeinsamen `DataUpdateCoordinator`. Die Protokollschicht ist ohne
+   Hardware testbar (`python3 -m pytest homeassistant/tests/test_protocol.py`).
+
+## Zonen-Statusformat
+
+Die Antwort auf `ZONE_VIEW_ROW` dekodiert die App in `ZoneInfoHelper.getZoneInfo()`.
+Offsets zählen ab Beginn des reassemblierten Pakets, Werte sind little-endian:
+
+| Offset | Typ | Feld |
+|---|---|---|
+| 17 | u8 | Lüfterstufe |
+| 18 | u8 | playMode: 0 normal, 1 Pause, 2 Boost |
+| 19 | i32 | Timer (Sekunden) |
+| 23 | u8 | Flags: bit0 Timer aktiv, bit1 CO2-Sensor, bit2 externer Sensor, bit3 FCU, bit4 globaler Befehl |
+| 24 | u8 | Lüftungsmodus |
+| 25 | u8 | Lüftungsprofil |
+| 30 | f32 | Komforttemperatur |
+| 34 | f32 | Feuchte-Schwellwert |
+| 38 | f32 | CO2-Schwellwert |
+| 42 | f32 | VOC-Schwellwert |
+| 46 | f32 | Außentemperatur |
+| 50 | f32 | Außenfeuchte |
+| 54 | f32 | Innentemperatur |
+| 58 | f32 | Innenfeuchte |
+| 62 | f32 | CO2 innen |
+| 66 | f32 | VOC innen |
+| 70 | f32 | System-Statusflag |
+| 78 | i32 | Lüftungszeit |
+
+Fehlende Sensoren liefert die Firmware als Unendlich; die App bildet das auf 0 ab.
+Die Zeile ist damit mindestens 82 Byte lang und braucht fünf BLE-Rahmen.
+
+Der Ablauf ist: `ZONE_VIEW_HEADER` (leere Payload, OpType 2) liefert die Zeilenzahl,
+danach je Zone `ZONE_VIEW_ROW` mit dem Zonenindex als 1-Byte-Payload und OpType 1.
 
 ## Offene Punkte
 
 - Zuordnung Zirconia ↔ konkretes Reglermodell am Gerät verifizieren.
-- Herkunft der PIN (Typenschild vs. gerätegeneriert) klären.
 - Ob der Regler parallele Verbindungen zulässt, ist praktisch zu testen.
-- Vollständige Feldbelegung der Device-View-Zeilen ist im SDK vorhanden, hier noch
-  nicht ausgeschrieben.
+- Die Bytes 0-16 und 26-29 sowie 74-77 der Zonenzeile sind noch nicht zugeordnet.
+  Die Diagnose der Integration gibt die Rohzeile als Hex aus — daraus lässt sich
+  der Rest bestimmen.
+- Lüftungsmodus-Werte (Offset 24) sind als Index bekannt, ihre Bedeutung nicht.
