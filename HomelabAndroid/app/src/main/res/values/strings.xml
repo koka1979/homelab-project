@@ -2063,4 +2063,14 @@
     <string name="dyndns_error_no_address">No public address could be determined on this network</string>
     <string name="dyndns_error_update_failed">OVH refused the update</string>
     <string name="dyndns_published_address">published address</string>
+    <string name="dyndns_fail_badauth">DynHost user name or password rejected</string>
+    <string name="dyndns_fail_nohost">No DynHost %1$s record for this host name</string>
+    <string name="dyndns_fail_notfqdn">The host name is not a complete domain name</string>
+    <string name="dyndns_fail_abuse">OVH blocked this host name for too many updates</string>
+    <string name="dyndns_fail_rejected">OVH rejected the request</string>
+    <string name="dyndns_fail_server">OVH reported a problem on their side, try again later</string>
+    <string name="dyndns_fail_connection">No connection to OVH</string>
+    <string name="dyndns_address_none">not available on this network</string>
+    <string name="dyndns_address_unreachable">address service not reachable</string>
+    <string name="dyndns_address_unexpected">unexpected answer from the address service</string>
 </resources>

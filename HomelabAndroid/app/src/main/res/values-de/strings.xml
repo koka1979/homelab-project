@@ -1676,4 +1676,14 @@
     <string name="dyndns_error_no_address">In diesem Netz konnte keine öffentliche Adresse ermittelt werden</string>
     <string name="dyndns_error_update_failed">OVH hat die Aktualisierung abgelehnt</string>
     <string name="dyndns_published_address">veröffentlichte Adresse</string>
+    <string name="dyndns_fail_badauth">DynHost-Benutzer oder -Passwort abgelehnt</string>
+    <string name="dyndns_fail_nohost">Kein DynHost-%1$s-Eintrag für diesen Hostnamen</string>
+    <string name="dyndns_fail_notfqdn">Der Hostname ist kein vollständiger Domainname</string>
+    <string name="dyndns_fail_abuse">OVH hat den Hostnamen wegen zu vieler Aktualisierungen gesperrt</string>
+    <string name="dyndns_fail_rejected">OVH hat die Anfrage abgelehnt</string>
+    <string name="dyndns_fail_server">OVH meldet ein Problem auf ihrer Seite, später erneut versuchen</string>
+    <string name="dyndns_fail_connection">Keine Verbindung zu OVH</string>
+    <string name="dyndns_address_none">in diesem Netz nicht verfügbar</string>
+    <string name="dyndns_address_unreachable">Adressdienst nicht erreichbar</string>
+    <string name="dyndns_address_unexpected">unerwartete Antwort des Adressdienstes</string>
 </resources>

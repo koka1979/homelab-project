@@ -1,6 +1,7 @@
 package com.homelab.app.data.repository
 
 import com.homelab.app.data.remote.TlsClientSelector
+import com.homelab.app.domain.dyndns.DynDnsAddressError
 import com.homelab.app.domain.dyndns.DynDnsAddresses
 import com.homelab.app.domain.dyndns.DynDnsRecordType
 import com.homelab.app.domain.dyndns.DynDnsUpdateOutcome
@@ -64,6 +65,31 @@ class OvhDynDnsTest {
             assertEquals(expected, (outcome as DynDnsUpdateOutcome.Failed).code)
             assertTrue("$body needs a readable message", outcome.message.isNotBlank())
         }
+    }
+
+    @Test
+    fun `the json 404 of the newer endpoint means the record is missing`() {
+        // dns.eu.ovhapis.com answers a host name without a DynHost record as JSON rather than
+        // with the dyndns2 keyword; raw JSON in front of the user would say nothing useful.
+        val outcome = parse(
+            body = """{"class":"Client::NotFound","message":"No record found"}""",
+            code = 404
+        )
+
+        assertEquals("nohost", (outcome as DynDnsUpdateOutcome.Failed).code)
+        assertFalse(outcome.message.contains("Client::NotFound"))
+    }
+
+    @Test
+    fun `a json error keeps its message instead of the whole body`() {
+        val outcome = parse(
+            body = """{"class":"Server::Error","message":"Service temporarily down"}""",
+            code = 500
+        )
+
+        val failed = outcome as DynDnsUpdateOutcome.Failed
+        assertTrue(failed.message.contains("Service temporarily down"))
+        assertFalse(failed.message.contains("\"class\""))
     }
 
     @Test
@@ -152,7 +178,7 @@ class OvhDynDnsTest {
 
         val report = repository.update(
             instance = instance,
-            addresses = DynDnsAddresses(ipv4 = "203.0.113.7", ipv6Error = "no IPv6"),
+            addresses = DynDnsAddresses(ipv4 = "203.0.113.7", ipv6Error = DynDnsAddressError.NO_ADDRESS),
             types = DynDnsRecordType.entries.toSet(),
             lastSent = mapOf(DynDnsRecordType.IPV4 to "203.0.113.7")
         )
@@ -162,7 +188,7 @@ class OvhDynDnsTest {
         assertTrue(ipv4 is DynDnsUpdateOutcome.Unchanged)
         // A family without an address on this network keeps the reason it was skipped for.
         assertTrue(ipv6 is DynDnsUpdateOutcome.Skipped)
-        assertEquals("no IPv6", (ipv6 as DynDnsUpdateOutcome.Skipped).reason)
+        assertEquals(DynDnsAddressError.NO_ADDRESS, (ipv6 as DynDnsUpdateOutcome.Skipped).reason)
         assertTrue(report.succeeded)
     }
 
@@ -201,7 +227,7 @@ class OvhDynDnsTest {
             hostname = "home.example.com",
             outcomes = listOf(
                 DynDnsUpdateOutcome.Updated(DynDnsRecordType.IPV4, "203.0.113.7"),
-                DynDnsUpdateOutcome.Skipped(DynDnsRecordType.IPV6, "no IPv6 on this network")
+                DynDnsUpdateOutcome.Skipped(DynDnsRecordType.IPV6, DynDnsAddressError.NO_ADDRESS)
             )
         )
 

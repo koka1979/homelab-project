@@ -3,6 +3,7 @@ package com.homelab.app.data.repository
 import com.homelab.app.data.remote.TlsClientSelector
 import com.homelab.app.domain.action.ActionRisk
 import com.homelab.app.domain.action.ControlledActionRequest
+import com.homelab.app.domain.dyndns.DynDnsAddressError
 import com.homelab.app.domain.dyndns.DynDnsAddresses
 import com.homelab.app.domain.dyndns.DynDnsRecordType
 import com.homelab.app.domain.dyndns.DynDnsUpdateOutcome
@@ -11,7 +12,10 @@ import com.homelab.app.domain.model.ServiceInstance
 import java.io.IOException
 import java.net.Inet6Address
 import java.net.InetAddress
+import java.net.ConnectException
+import java.net.NoRouteToHostException
 import java.net.URI
+import java.net.UnknownHostException
 import java.time.Instant
 import java.util.Base64
 import java.util.Locale
@@ -51,6 +55,9 @@ enum class DynDnsAction(val actionId: String, val risk: ActionRisk) {
 
 class DynDnsException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
+/** Carries why one family could not be detected, so the UI can say it in the user's words. */
+internal class DynDnsDetectionException(val reason: DynDnsAddressError) : Exception(reason.name)
+
 /**
  * Updates an OVH DynHost record with the address the current network has on the internet.
  *
@@ -82,28 +89,24 @@ class OvhDynDnsRepository @Inject constructor(
         DynDnsAddresses(
             ipv4 = ipv4.getOrNull(),
             ipv6 = ipv6.getOrNull(),
-            ipv4Error = ipv4.exceptionOrNull()?.let(::readableError),
-            ipv6Error = ipv6.exceptionOrNull()?.let(::readableError)
+            ipv4Error = ipv4.exceptionOrNull()?.let(::classifyDetectionFailure),
+            ipv6Error = ipv6.exceptionOrNull()?.let(::classifyDetectionFailure)
         )
     }
 
     private suspend fun fetchAddress(url: String, expected: DynDnsRecordType): String =
         withContext(Dispatchers.IO) {
             val request = Request.Builder().url(url).get().addHeader("Accept", "text/plain").build()
-            val body = try {
-                tlsClientSelector.forAllowSelfSigned(false).newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        throw DynDnsException("HTTP ${response.code}")
-                    }
-                    response.body?.string().orEmpty()
+            val body = tlsClientSelector.forAllowSelfSigned(false).newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw DynDnsDetectionException(DynDnsAddressError.UNEXPECTED_ANSWER)
                 }
-            } catch (error: IOException) {
-                throw DynDnsException(error.message ?: "No connection", error)
+                response.body?.string().orEmpty()
             }
 
             val candidate = body.trim()
             if (!matchesFamily(candidate, expected)) {
-                throw DynDnsException("Unexpected answer: $candidate")
+                throw DynDnsDetectionException(DynDnsAddressError.UNEXPECTED_ANSWER)
             }
             candidate
         }
@@ -135,7 +138,7 @@ class OvhDynDnsRepository @Inject constructor(
             when {
                 address == null -> DynDnsUpdateOutcome.Skipped(
                     type,
-                    addresses.errorFor(type) ?: "No address of this kind on this network"
+                    addresses.errorFor(type) ?: DynDnsAddressError.NO_ADDRESS
                 )
                 !force && lastSent[type] == address -> DynDnsUpdateOutcome.Unchanged(type, address)
                 else -> send(hostname, username, password, type, address)
@@ -169,7 +172,7 @@ class OvhDynDnsRepository @Inject constructor(
                 .build()
 
             try {
-                return@withContext tlsClientSelector.forAllowSelfSigned(false)
+                val outcome = tlsClientSelector.forAllowSelfSigned(false)
                     .newCall(request)
                     .execute()
                     .use { response ->
@@ -180,11 +183,17 @@ class OvhDynDnsRepository @Inject constructor(
                             address = address
                         )
                     }
+                // The two endpoints are different gateways in front of the same service and do
+                // not always know the same records, so a "no record" from one is worth asking
+                // the other about. Every other verdict is final.
+                if (outcome is DynDnsUpdateOutcome.Failed && outcome.code == "nohost") {
+                    lastError = outcome
+                    continue
+                }
+                return@withContext outcome
             } catch (error: CancellationException) {
                 throw error
             } catch (error: IOException) {
-                // Only a transport failure is worth trying the other endpoint for; a refusal is
-                // the same answer on both.
                 lastError = DynDnsUpdateOutcome.Failed(
                     type,
                     "connection",
@@ -195,8 +204,17 @@ class OvhDynDnsRepository @Inject constructor(
         lastError ?: DynDnsUpdateOutcome.Failed(type, "connection", "No connection")
     }
 
-    private fun readableError(error: Throwable): String =
-        error.message?.trim()?.takeIf { it.isNotBlank() } ?: "Unavailable"
+    /**
+     * A name that does not resolve is the normal answer of an IPv4-only network to the IPv6-only
+     * echo host: the family is simply absent, which is not an error worth a technical message.
+     */
+    private fun classifyDetectionFailure(error: Throwable): DynDnsAddressError = when (error) {
+        is DynDnsDetectionException -> error.reason
+        is UnknownHostException -> DynDnsAddressError.NO_ADDRESS
+        is ConnectException, is NoRouteToHostException -> DynDnsAddressError.NO_ADDRESS
+        is IOException -> DynDnsAddressError.UNREACHABLE
+        else -> DynDnsAddressError.UNEXPECTED_ANSWER
+    }
 
     companion object {
         /** OVH's current DynHost endpoint, with the legacy host as a fallback. */
@@ -208,11 +226,6 @@ class OvhDynDnsRepository @Inject constructor(
         const val IPV6_ECHO_URL = "https://api6.ipify.org"
         private const val USER_AGENT = "Homelab-Android DynDNS/1.0"
     }
-}
-
-private fun DynDnsAddresses.errorFor(type: DynDnsRecordType): String? = when (type) {
-    DynDnsRecordType.IPV4 -> ipv4Error
-    DynDnsRecordType.IPV6 -> ipv6Error
 }
 
 /**
@@ -255,6 +268,9 @@ internal fun matchesFamily(candidate: String, expected: DynDnsRecordType): Boole
  * the keyword decides - and every refusal keeps its keyword, because that is what tells the user
  * whether to fix the password, the hostname or the record type.
  */
+/** OVH answers some refusals as JSON rather than dyndns2 text; this pulls out its message. */
+private val JSON_MESSAGE = Regex("\"message\"\\s*:\\s*\"([^\"]*)\"")
+
 internal fun parseDynDnsResponse(
     type: DynDnsRecordType,
     code: Int,
@@ -264,6 +280,8 @@ internal fun parseDynDnsResponse(
     val text = body?.trim().orEmpty()
     val keyword = text.substringBefore('\n').trim().substringBefore(' ').lowercase(Locale.ROOT)
     val returnedAddress = text.substringBefore('\n').trim().substringAfter(' ', "").trim()
+    val jsonMessage = JSON_MESSAGE.find(text)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
+    val detail = jsonMessage ?: text
 
     return when {
         keyword == "good" -> DynDnsUpdateOutcome.Updated(type, returnedAddress.ifBlank { address })
@@ -273,11 +291,16 @@ internal fun parseDynDnsResponse(
             "badauth",
             "The DynHost user name or password was rejected"
         )
-        keyword == "nohost" -> DynDnsUpdateOutcome.Failed(
-            type,
-            "nohost",
-            "This host name has no DynHost ${type.recordName} record"
-        )
+        // A host name without a DynHost record of this family is answered as `nohost` by the
+        // dyndns2 endpoint and as a JSON 404 by the newer one; both mean the same thing.
+        keyword == "nohost" ||
+            code == 404 ||
+            jsonMessage?.contains("no record found", ignoreCase = true) == true ->
+            DynDnsUpdateOutcome.Failed(
+                type,
+                "nohost",
+                "This host name has no DynHost ${type.recordName} record"
+            )
         keyword == "notfqdn" -> DynDnsUpdateOutcome.Failed(
             type,
             "notfqdn",
@@ -298,12 +321,12 @@ internal fun parseDynDnsResponse(
         code !in 200..299 -> DynDnsUpdateOutcome.Failed(
             type,
             "http-$code",
-            listOf("HTTP $code", text).filter { it.isNotBlank() }.joinToString(": ")
+            listOf("HTTP $code", detail).filter { it.isNotBlank() }.joinToString(": ")
         )
         else -> DynDnsUpdateOutcome.Failed(
             type,
             "unknown",
-            text.ifBlank { "The server gave no answer" }
+            detail.ifBlank { "The server gave no answer" }
         )
     }
 }

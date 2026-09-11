@@ -6,19 +6,36 @@ enum class DynDnsRecordType(val recordName: String) {
     IPV6("AAAA")
 }
 
+/** Why one address family could not be determined. */
+enum class DynDnsAddressError {
+    /** The network carries no address of this family - the usual case for IPv6 on mobile data. */
+    NO_ADDRESS,
+
+    /** The address service could not be reached at all. */
+    UNREACHABLE,
+
+    /** Something answered, but not with an address. */
+    UNEXPECTED_ANSWER
+}
+
 /** The public addresses of the current network, as seen from the internet. */
 data class DynDnsAddresses(
     val ipv4: String? = null,
     val ipv6: String? = null,
     /** Why a family could not be determined, e.g. a network without IPv6. */
-    val ipv4Error: String? = null,
-    val ipv6Error: String? = null
+    val ipv4Error: DynDnsAddressError? = null,
+    val ipv6Error: DynDnsAddressError? = null
 ) {
     val hasAny: Boolean get() = ipv4 != null || ipv6 != null
 
     fun addressFor(type: DynDnsRecordType): String? = when (type) {
         DynDnsRecordType.IPV4 -> ipv4
         DynDnsRecordType.IPV6 -> ipv6
+    }
+
+    fun errorFor(type: DynDnsRecordType): DynDnsAddressError? = when (type) {
+        DynDnsRecordType.IPV4 -> ipv4Error
+        DynDnsRecordType.IPV6 -> ipv6Error
     }
 }
 
@@ -43,8 +60,11 @@ sealed interface DynDnsUpdateOutcome {
         val message: String
     ) : DynDnsUpdateOutcome
 
-    /** This family was skipped: the network has no such address, or nothing changed. */
-    data class Skipped(override val type: DynDnsRecordType, val reason: String) : DynDnsUpdateOutcome
+    /** This family was skipped because the network has no address of it. */
+    data class Skipped(
+        override val type: DynDnsRecordType,
+        val reason: DynDnsAddressError
+    ) : DynDnsUpdateOutcome
 }
 
 /** The result of one run over both families. */

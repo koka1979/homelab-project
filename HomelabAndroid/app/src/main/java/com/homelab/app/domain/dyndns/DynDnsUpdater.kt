@@ -70,10 +70,16 @@ class DynDnsUpdater @Inject constructor(
                     context.getString(R.string.dyndns_outcome_updated, record, outcome.address)
                 is DynDnsUpdateOutcome.Unchanged ->
                     context.getString(R.string.dyndns_outcome_unchanged, record, outcome.address)
-                is DynDnsUpdateOutcome.Skipped ->
-                    context.getString(R.string.dyndns_outcome_skipped, record, outcome.reason)
-                is DynDnsUpdateOutcome.Failed ->
-                    context.getString(R.string.dyndns_outcome_failed, record, outcome.message)
+                is DynDnsUpdateOutcome.Skipped -> context.getString(
+                    R.string.dyndns_outcome_skipped,
+                    record,
+                    dynDnsAddressErrorMessage(context, outcome.reason)
+                )
+                is DynDnsUpdateOutcome.Failed -> context.getString(
+                    R.string.dyndns_outcome_failed,
+                    record,
+                    dynDnsFailureMessage(context, outcome)
+                )
             }
         }
 }

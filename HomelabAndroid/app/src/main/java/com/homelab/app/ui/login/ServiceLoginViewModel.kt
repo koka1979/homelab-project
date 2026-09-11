@@ -907,12 +907,17 @@ class ServiceLoginViewModel @Inject constructor(
                             )
                             report.failures
                                 .firstOrNull { it.code == "badauth" || it.code == "notfqdn" }
-                                ?.let { throw IllegalStateException(it.message) }
+                                ?.let {
+                                    throw IllegalStateException(
+                                        com.homelab.app.domain.dyndns.dynDnsFailureMessage(context, it)
+                                    )
+                                }
                             // A single family without its own DynHost record is normal - the
                             // user may only run IPv4 - so only a failure of every family counts.
                             if (report.failures.size == report.outcomes.size) {
                                 throw IllegalStateException(
-                                    report.failures.firstOrNull()?.message
+                                    report.failures.firstOrNull()
+                                        ?.let { com.homelab.app.domain.dyndns.dynDnsFailureMessage(context, it) }
                                         ?: context.getString(R.string.dyndns_error_update_failed)
                                 )
                             }

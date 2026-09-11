@@ -46,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,7 +54,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.homelab.app.R
+import com.homelab.app.domain.dyndns.DynDnsAddressError
 import com.homelab.app.domain.dyndns.DynDnsAddresses
+import com.homelab.app.domain.dyndns.dynDnsAddressErrorMessage
 import com.homelab.app.domain.dyndns.DynDnsInstanceState
 import com.homelab.app.ui.common.ErrorScreen
 import com.homelab.app.ui.components.ServiceInstancePicker
@@ -260,7 +263,9 @@ private fun AddressCard(addresses: DynDnsAddresses) {
 }
 
 @Composable
-private fun AddressRow(label: String, value: String?, error: String?) {
+private fun AddressRow(label: String, value: String?, error: DynDnsAddressError?) {
+    val context = LocalContext.current
+    val errorText = error?.let { dynDnsAddressErrorMessage(context, it) }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
             text = label,
@@ -268,7 +273,7 @@ private fun AddressRow(label: String, value: String?, error: String?) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = value ?: error ?: stringResource(R.string.dyndns_unavailable),
+            text = value ?: errorText ?: stringResource(R.string.dyndns_unavailable),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (value != null) FontWeight.SemiBold else FontWeight.Normal,
             color = if (value != null) {
