@@ -17,6 +17,18 @@ Tested shape: Basic Connect e4/e8 or easy connect e16 without WiFi. Controllers
 with WiFi expose the same packet protocol over TLS-PSK on TCP 47820, which this
 integration does not implement yet.
 
+## Related work
+
+For standalone fans that use the Pax per-characteristic GATT profile — Pax
+Calima and Levante, Vent-Axia Svara and Svensa, and reportedly the inVENTer
+Pulsar — use [`eriknn/ha-pax_ble`](https://github.com/eriknn/ha-pax_ble)
+instead. It is mature, installable through HACS, and covers those devices
+properly.
+
+This integration exists for the case that one does not cover: the Connect
+controller, which speaks a packet protocol over a single characteristic rather
+than the Pax profile. As of September 2026 nothing published handles it.
+
 ## Requirements
 
 - The controller in range of a Bluetooth adapter or an ESPHome Bluetooth proxy

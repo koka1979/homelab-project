@@ -112,8 +112,11 @@ class InventerClient:
                 "device does not expose the inVENTer transport characteristic")
 
         try:
+            # 4-byte little-endian int, matching both the app and pycalima.
+            # Masked rather than signed so an out-of-range value cannot raise
+            # OverflowError here instead of being rejected by the controller.
             await client.write_gatt_char(
-                PIN_CODE_CHARACTERISTIC, self._pin.to_bytes(4, "little", signed=True),
+                PIN_CODE_CHARACTERISTIC, (self._pin & 0xFFFFFFFF).to_bytes(4, "little"),
                 response=True)
             confirmation = await client.read_gatt_char(PIN_CONFIRMATION_CHARACTERISTIC)
         except BleakError as err:

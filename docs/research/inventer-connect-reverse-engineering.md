@@ -13,6 +13,45 @@ Dekompilierung dafür durch Art. 6 der Software-Richtlinie 2009/24/EG bzw. § 69
 gedeckt. Es werden keine Binaries oder dekompilierten Quellen in dieses Repository
 übernommen — nur Protokollbeobachtungen.
 
+## Stand der Technik (Recherche September 2026)
+
+Vor und nach dieser Arbeit geprüft, was es bereits gibt:
+
+**Für eigenständige Lüfter mit Pax-Profil gibt es eine ausgereifte Lösung.**
+[`eriknn/ha-pax_ble`](https://github.com/eriknn/ha-pax_ble) ("Pax & Vent-Axia
+Bluetooth") deckt Pax Calima, Pax Levante 50, Vent-Axia Svara und Svensa ab, mit
+Auto-Discovery und HACS-Installation. Unterbau ist
+[`PatrickE94/pycalima`](https://github.com/PatrickE94/pycalima). Ein Nutzer
+berichtet im HA-Forum, dass sich auch die **inVENTer Pulsar** damit einbinden
+lässt — plausibel, denn Pulsar ist ein Einzelgerät mit genau diesem Profil.
+Das ältere `MarkoMarjamaa/homeassistant-paxcalima` ist seit HA 2022.7 defekt.
+
+**Für den Connect-Regler gibt es nichts.** Der einschlägige Forumsthread
+[„Looking for InVENTer easy control e16 HA integration"](https://community.home-assistant.io/t/looking-for-inventer-easy-control-e16-ha-integration/857319)
+läuft seit 2025 ohne Lösung; der jüngste Beitrag (August 2026) nennt einen
+Anfänger, der an einer Integration für die **WiFi**-Variante arbeitet. Für den
+BLE-Pfad des Reglers ist nichts veröffentlicht. Genau diese Lücke füllt die
+Integration in diesem Repository.
+
+**Für sMove gibt es den 0-10-V-Weg.** Dokumentiert als
+[Community-Projekt](https://community.home-assistant.io/t/controlling-an-inventer-smove-decentralized-ventilation-system-via-ha-and-shelly/796906)
+mit einem Shelly Dimmer 0/1-10V PM Gen3.
+
+### Gegenprobe der Extraktion
+
+`pycalima` ist eine unabhängige Reverse-Engineering-Arbeit am selben
+Volution-Profil. Alle Characteristic-UUIDs, die dort dokumentiert sind, stimmen
+mit der hier aus dem APK extrahierten Tabelle überein, ebenso das PIN-Format
+(4 Byte Integer, little-endian, auf `4cad343a-…`). Das bestätigt den
+Pax-Profil-Teil dieser Analyse von außen. Der Zirconia-Paketkanal des Reglers
+kommt in `pycalima` nicht vor — er ist der neue Teil.
+
+### Naheliegender nächster Schritt
+
+Die saubere Heimat für diese Arbeit wäre ein Upstream-Beitrag zu `ha-pax_ble`:
+das Projekt deckt die Pax-Familie bereits ab, und der Connect-Regler wäre eine
+weitere Gerätefamilie darin statt einer konkurrierenden Integration.
+
 ## Ergebnis in einem Satz
 
 Machbar, und deutlich besser als erwartet: die App spricht **ausschließlich lokal**
