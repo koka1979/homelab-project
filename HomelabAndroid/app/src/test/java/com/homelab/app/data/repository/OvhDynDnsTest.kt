@@ -4,6 +4,7 @@ import com.homelab.app.data.remote.TlsClientSelector
 import com.homelab.app.domain.dyndns.DynDnsAddressError
 import com.homelab.app.domain.dyndns.DynDnsAddresses
 import com.homelab.app.domain.dyndns.DynDnsRecordType
+import junit.framework.TestCase.assertNotNull
 import com.homelab.app.domain.dyndns.DynDnsUpdateOutcome
 import com.homelab.app.domain.dyndns.DynDnsUpdateReport
 import com.homelab.app.domain.model.ServiceInstance
@@ -212,6 +213,60 @@ class OvhDynDnsTest {
         } catch (error: DynDnsException) {
             assertTrue(error.message!!.isNotBlank())
         }
+    }
+
+    @Test
+    fun `the published record is read from a doh answer`() {
+        val answer = parseDohAnswer(
+            """{"Status":0,"Answer":[{"name":"mobil.home.example.com.","type":1,"TTL":60,"data":"85.72.199.52"}]}""",
+            DynDnsRecordType.IPV4
+        )
+
+        assertNotNull(answer)
+        assertEquals("85.72.199.52", answer!!.address)
+        assertEquals(60, answer.ttlSeconds)
+        assertTrue(answer.matches("85.72.199.52"))
+        assertFalse(answer.matches("1.2.3.4"))
+    }
+
+    @Test
+    fun `a name without a record of this family reads as no record, not as an error`() {
+        // The host name exists with an A record, so asking for AAAA answers NOERROR and an empty
+        // list. That is a record which is not there - not a lookup that went wrong.
+        val answer = parseDohAnswer("""{"Status":0,"Answer":[]}""", DynDnsRecordType.IPV6)
+
+        assertNotNull(answer)
+        assertNull(answer!!.address)
+        assertNull(answer.error)
+    }
+
+    @Test
+    fun `an unknown name reads as no record too`() {
+        val answer = parseDohAnswer("""{"Status":3}""", DynDnsRecordType.IPV4)
+
+        assertNotNull(answer)
+        assertNull(answer!!.address)
+    }
+
+    @Test
+    fun `entries of other types on the way to the address are ignored`() {
+        // A CNAME in front of the address must not be published as the record's value.
+        val answer = parseDohAnswer(
+            """{"Status":0,"Answer":[
+                 {"name":"mobil.home.example.com.","type":5,"TTL":60,"data":"other.example.com."},
+                 {"name":"other.example.com.","type":1,"TTL":60,"data":"85.72.199.52"}]}""",
+            DynDnsRecordType.IPV4
+        )
+
+        assertEquals("85.72.199.52", answer!!.address)
+    }
+
+    @Test
+    fun `a broken or refused answer is not mistaken for an empty record`() {
+        // SERVFAIL and an unreadable body have to fall through to the next resolver instead of
+        // claiming the record does not exist.
+        assertNull(parseDohAnswer("""{"Status":2}""", DynDnsRecordType.IPV4))
+        assertNull(parseDohAnswer("<html>gateway error</html>", DynDnsRecordType.IPV4))
     }
 
     @Test

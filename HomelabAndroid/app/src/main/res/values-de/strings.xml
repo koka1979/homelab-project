@@ -1686,4 +1686,10 @@
     <string name="dyndns_address_none">in diesem Netz nicht verfügbar</string>
     <string name="dyndns_address_unreachable">Adressdienst nicht erreichbar</string>
     <string name="dyndns_address_unexpected">unerwartete Antwort des Adressdienstes</string>
+    <string name="dyndns_published_title">Bei OVH eingetragen</string>
+    <string name="dyndns_published_record">%1$s (%2$s-Eintrag)</string>
+    <string name="dyndns_published_missing">kein Eintrag</string>
+    <string name="dyndns_published_match">stimmt überein</string>
+    <string name="dyndns_published_stale">weicht ab</string>
+    <string name="dyndns_published_ttl">bis zu %1$d s zwischengespeichert</string>
 </resources>

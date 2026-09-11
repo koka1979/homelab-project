@@ -16,6 +16,7 @@ import com.homelab.app.domain.action.ActionRole
 import com.homelab.app.domain.action.ControlledActionCoordinator
 import com.homelab.app.domain.dyndns.DynDnsAddresses
 import com.homelab.app.domain.dyndns.DynDnsInstanceState
+import com.homelab.app.domain.dyndns.DynDnsPublishedRecords
 import com.homelab.app.domain.dyndns.DynDnsStateStore
 import com.homelab.app.domain.dyndns.DynDnsUpdater
 import com.homelab.app.domain.model.ServiceInstance
@@ -29,6 +30,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -62,6 +64,10 @@ class OvhDynDnsViewModel @Inject constructor(
     private val _hostname = MutableStateFlow<String?>(null)
     val hostname: StateFlow<String?> = _hostname.asStateFlow()
 
+    /** What the host name resolves to in the public DNS right now. */
+    private val _publishedState = MutableStateFlow<UiState<DynDnsPublishedRecords>>(UiState.Idle)
+    val publishedState: StateFlow<UiState<DynDnsPublishedRecords>> = _publishedState.asStateFlow()
+
     private val _isUpdating = MutableStateFlow(false)
     val isUpdating: StateFlow<Boolean> = _isUpdating.asStateFlow()
 
@@ -69,16 +75,18 @@ class OvhDynDnsViewModel @Inject constructor(
     val messages: SharedFlow<String> = _messages.asSharedFlow()
 
     private var detectJob: Job? = null
+    private var lookupJob: Job? = null
 
     val instances: StateFlow<List<ServiceInstance>> = servicesRepository.instancesByType
         .map { it[ServiceType.OVH_DYNDNS].orEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
-        refresh()
         viewModelScope.launch {
             _hostname.value = servicesRepository.getInstance(instanceId)?.let(::hostnameOf)
+            refreshPublishedRecords()
         }
+        refresh()
     }
 
     /** Reads the current public addresses without touching DNS. */
@@ -97,6 +105,28 @@ class OvhDynDnsViewModel @Inject constructor(
                 )
             }
             _settings.value = stateStore.state(instanceId)
+        }
+        refreshPublishedRecords()
+    }
+
+    /** Asks the public DNS what the record carries; no credentials and no change involved. */
+    fun refreshPublishedRecords() {
+        val hostname = _hostname.value ?: return
+        lookupJob?.cancel()
+        lookupJob = viewModelScope.launch {
+            if (_publishedState.value !is UiState.Success) {
+                _publishedState.value = UiState.Loading
+            }
+            try {
+                _publishedState.value = UiState.Success(repository.lookupPublishedRecords(hostname))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _publishedState.value = UiState.Error(
+                    message = ErrorHandler.getMessage(context, error),
+                    retryAction = { refreshPublishedRecords() }
+                )
+            }
         }
     }
 
@@ -123,6 +153,10 @@ class OvhDynDnsViewModel @Inject constructor(
                         val result = updater.run(instanceId, force = true)
                         _addressState.value = UiState.Success(result.addresses)
                         _messages.emit(result.summary)
+                        // DynHost records live with a TTL of 60 seconds, so the new value is
+                        // visible almost at once - give the zone a moment, then read it back.
+                        delay(2_000L)
+                        refreshPublishedRecords()
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {

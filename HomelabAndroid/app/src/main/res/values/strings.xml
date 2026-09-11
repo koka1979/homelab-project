@@ -2073,4 +2073,10 @@
     <string name="dyndns_address_none">not available on this network</string>
     <string name="dyndns_address_unreachable">address service not reachable</string>
     <string name="dyndns_address_unexpected">unexpected answer from the address service</string>
+    <string name="dyndns_published_title">Registered at OVH</string>
+    <string name="dyndns_published_record">%1$s (%2$s record)</string>
+    <string name="dyndns_published_missing">no record</string>
+    <string name="dyndns_published_match">matches</string>
+    <string name="dyndns_published_stale">differs</string>
+    <string name="dyndns_published_ttl">cached for up to %1$d s</string>
 </resources>

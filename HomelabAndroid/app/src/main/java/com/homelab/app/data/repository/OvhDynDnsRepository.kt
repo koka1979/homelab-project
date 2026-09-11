@@ -5,6 +5,8 @@ import com.homelab.app.domain.action.ActionRisk
 import com.homelab.app.domain.action.ControlledActionRequest
 import com.homelab.app.domain.dyndns.DynDnsAddressError
 import com.homelab.app.domain.dyndns.DynDnsAddresses
+import com.homelab.app.domain.dyndns.DynDnsPublishedRecord
+import com.homelab.app.domain.dyndns.DynDnsPublishedRecords
 import com.homelab.app.domain.dyndns.DynDnsRecordType
 import com.homelab.app.domain.dyndns.DynDnsUpdateOutcome
 import com.homelab.app.domain.dyndns.DynDnsUpdateReport
@@ -27,6 +29,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 
@@ -110,6 +115,60 @@ class OvhDynDnsRepository @Inject constructor(
             }
             candidate
         }
+
+    // ---------- What the record says right now ----------
+
+    /**
+     * Reads the A and AAAA record of [hostname] from the public DNS, so the screen can show what
+     * OVH actually serves rather than only what the app last sent.
+     *
+     * The lookup goes over DNS-over-HTTPS on purpose: the device's own resolver answers with the
+     * families its network carries, so on mobile data an AAAA record would look missing even
+     * when OVH has one. It also skips the local cache, which matters right after an update.
+     */
+    suspend fun lookupPublishedRecords(hostname: String): DynDnsPublishedRecords = coroutineScope {
+        val ipv4Job = async { lookupRecord(hostname, DynDnsRecordType.IPV4) }
+        val ipv6Job = async { lookupRecord(hostname, DynDnsRecordType.IPV6) }
+        DynDnsPublishedRecords(
+            hostname = hostname,
+            ipv4 = ipv4Job.await(),
+            ipv6 = ipv6Job.await()
+        )
+    }
+
+    private suspend fun lookupRecord(
+        hostname: String,
+        type: DynDnsRecordType
+    ): DynDnsPublishedRecord = withContext(Dispatchers.IO) {
+        var lastError = DynDnsAddressError.UNREACHABLE
+        for (resolver in DOH_RESOLVERS) {
+            val url = resolver.toHttpUrl().newBuilder()
+                .addQueryParameter("name", hostname)
+                .addQueryParameter("type", type.recordName)
+                .build()
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("Accept", "application/dns-json")
+                .build()
+
+            try {
+                val body = tlsClientSelector.forAllowSelfSigned(false).newCall(request).execute()
+                    .use { response ->
+                        if (!response.isSuccessful) return@use null
+                        response.body?.string()
+                    }
+                val answer = body?.let { parseDohAnswer(it, type) }
+                if (answer != null) return@withContext answer.copy(type = type)
+                lastError = DynDnsAddressError.UNEXPECTED_ANSWER
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: IOException) {
+                lastError = DynDnsAddressError.UNREACHABLE
+            }
+        }
+        DynDnsPublishedRecord(type = type, error = lastError)
+    }
 
     // ---------- Updates ----------
 
@@ -223,6 +282,12 @@ class OvhDynDnsRepository @Inject constructor(
             "https://www.ovh.com/nic/update"
         )
         const val IPV4_ECHO_URL = "https://api4.ipify.org"
+
+        /** Two independent DNS-over-HTTPS resolvers, so one outage does not hide the record. */
+        val DOH_RESOLVERS = listOf(
+            "https://cloudflare-dns.com/dns-query",
+            "https://dns.google/resolve"
+        )
         const val IPV6_ECHO_URL = "https://api6.ipify.org"
         private const val USER_AGENT = "Homelab-Android DynDNS/1.0"
     }
@@ -268,6 +333,58 @@ internal fun matchesFamily(candidate: String, expected: DynDnsRecordType): Boole
  * the keyword decides - and every refusal keeps its keyword, because that is what tells the user
  * whether to fix the password, the hostname or the record type.
  */
+// ---------- DNS-over-HTTPS ----------
+
+@Serializable
+private data class DohResponse(
+    @SerialName("Status") val status: Int = -1,
+    @SerialName("Answer") val answer: List<DohAnswer> = emptyList()
+)
+
+@Serializable
+private data class DohAnswer(
+    val type: Int = 0,
+    @SerialName("TTL") val ttl: Int? = null,
+    val data: String = ""
+)
+
+private val dohJson = Json {
+    ignoreUnknownKeys = true
+    isLenient = true
+    coerceInputValues = true
+}
+
+/** DNS numeric record types, as they appear in a DoH answer. */
+private fun dnsTypeNumber(type: DynDnsRecordType) = when (type) {
+    DynDnsRecordType.IPV4 -> 1
+    DynDnsRecordType.IPV6 -> 28
+}
+
+/**
+ * Reads one DoH answer.
+ *
+ * A hostname that exists but has no record of this family answers NOERROR with no matching
+ * entry - that is a record which is simply not there, not a failed lookup, so it comes back as
+ * an empty record rather than an error. Entries of other types (a CNAME on the way) are ignored,
+ * and so is anything that is not a literal address.
+ */
+internal fun parseDohAnswer(body: String, type: DynDnsRecordType): DynDnsPublishedRecord? {
+    val parsed = runCatching { dohJson.decodeFromString(DohResponse.serializer(), body) }.getOrNull()
+        ?: return null
+    // 0 is NOERROR and 3 is NXDOMAIN; both are real answers about the name.
+    if (parsed.status != 0 && parsed.status != 3) return null
+
+    val match = parsed.answer
+        .filter { it.type == dnsTypeNumber(type) }
+        .firstOrNull { matchesFamily(it.data.trim(), type) }
+
+    return DynDnsPublishedRecord(
+        type = type,
+        address = match?.data?.trim(),
+        ttlSeconds = match?.ttl
+    )
+}
+
 /** OVH answers some refusals as JSON rather than dyndns2 text; this pulls out its message. */
 private val JSON_MESSAGE = Regex("\"message\"\\s*:\\s*\"([^\"]*)\"")
 

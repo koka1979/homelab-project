@@ -18,7 +18,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.SyncProblem
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -56,6 +58,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.homelab.app.R
 import com.homelab.app.domain.dyndns.DynDnsAddressError
 import com.homelab.app.domain.dyndns.DynDnsAddresses
+import com.homelab.app.domain.dyndns.DynDnsPublishedRecord
+import com.homelab.app.domain.dyndns.DynDnsPublishedRecords
+import com.homelab.app.domain.dyndns.DynDnsRecordType
 import com.homelab.app.domain.dyndns.dynDnsAddressErrorMessage
 import com.homelab.app.domain.dyndns.DynDnsInstanceState
 import com.homelab.app.ui.common.ErrorScreen
@@ -76,6 +81,7 @@ fun OvhDynDnsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val hostname by viewModel.hostname.collectAsStateWithLifecycle()
     val isUpdating by viewModel.isUpdating.collectAsStateWithLifecycle()
+    val publishedState by viewModel.publishedState.collectAsStateWithLifecycle()
     val instances by viewModel.instances.collectAsStateWithLifecycle()
 
     val currentInstance = instances.find { it.id == viewModel.instanceId }
@@ -148,6 +154,14 @@ fun OvhDynDnsScreen(
 
                         else -> {}
                     }
+                }
+
+                item {
+                    PublishedCard(
+                        state = publishedState,
+                        current = (addressState as? UiState.Success)?.data,
+                        onRetry = { viewModel.refreshPublishedRecords() }
+                    )
                 }
 
                 item {
@@ -235,6 +249,123 @@ private fun HostnameCard(hostname: String?, settings: DynDnsInstanceState) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
+
+/**
+ * What OVH currently serves for the host name. This is the answer to "did it actually arrive",
+ * which the app cannot know from its own last run alone.
+ */
+@Composable
+private fun PublishedCard(
+    state: UiState<DynDnsPublishedRecords>,
+    current: DynDnsAddresses?,
+    onRetry: () -> Unit
+) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = stringResource(R.string.dyndns_published_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+
+            when (state) {
+                is UiState.Loading, is UiState.Idle -> Box(
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) { CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp) }
+
+                is UiState.Error -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = state.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Button(onClick = onRetry) { Text(stringResource(R.string.retry)) }
+                }
+
+                is UiState.Success -> {
+                    PublishedRow(
+                        label = stringResource(R.string.dyndns_ipv4),
+                        record = state.data.ipv4,
+                        current = current?.ipv4
+                    )
+                    PublishedRow(
+                        label = stringResource(R.string.dyndns_ipv6),
+                        record = state.data.ipv6,
+                        current = current?.ipv6
+                    )
+                }
+
+                else -> {}
+            }
+        }
+    }
+}
+
+@Composable
+private fun PublishedRow(label: String, record: DynDnsPublishedRecord, current: String?) {
+    val context = LocalContext.current
+    val recordLabel = stringResource(
+        R.string.dyndns_published_record,
+        label,
+        record.type.recordName
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = recordLabel,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = record.address
+                    ?: record.error?.let { dynDnsAddressErrorMessage(context, it) }
+                    ?: stringResource(R.string.dyndns_published_missing),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (record.address != null) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (record.address != null) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.weight(1f)
+            )
+            // Only worth judging when both sides are known: without a current address of this
+            // family there is nothing to compare against.
+            if (record.address != null && current != null) {
+                val matches = record.matches(current)
+                Icon(
+                    imageVector = if (matches) Icons.Default.CheckCircle else Icons.Default.SyncProblem,
+                    contentDescription = stringResource(
+                        if (matches) R.string.dyndns_published_match else R.string.dyndns_published_stale
+                    ),
+                    tint = if (matches) Color(0xFF22C55E) else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = stringResource(
+                        if (matches) R.string.dyndns_published_match else R.string.dyndns_published_stale
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (matches) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    }
+                )
+            }
+        }
+        record.ttlSeconds?.takeIf { record.address != null }?.let { ttl ->
+            Text(
+                text = stringResource(R.string.dyndns_published_ttl, ttl),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

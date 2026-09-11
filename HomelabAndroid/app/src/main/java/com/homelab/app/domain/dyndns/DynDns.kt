@@ -67,6 +67,31 @@ sealed interface DynDnsUpdateOutcome {
     ) : DynDnsUpdateOutcome
 }
 
+/** What one address family currently resolves to in the public DNS. */
+data class DynDnsPublishedRecord(
+    val type: DynDnsRecordType,
+    val address: String? = null,
+    /** Seconds the answer may be cached; DynHost records use 60. */
+    val ttlSeconds: Int? = null,
+    val error: DynDnsAddressError? = null
+) {
+    /** True when the record already carries [current]. */
+    fun matches(current: String?): Boolean =
+        address != null && current != null && address.equals(current, ignoreCase = true)
+}
+
+/** What the host name resolves to right now, read straight from the public DNS. */
+data class DynDnsPublishedRecords(
+    val hostname: String,
+    val ipv4: DynDnsPublishedRecord,
+    val ipv6: DynDnsPublishedRecord
+) {
+    fun recordFor(type: DynDnsRecordType): DynDnsPublishedRecord = when (type) {
+        DynDnsRecordType.IPV4 -> ipv4
+        DynDnsRecordType.IPV6 -> ipv6
+    }
+}
+
 /** The result of one run over both families. */
 data class DynDnsUpdateReport(
     val hostname: String,
