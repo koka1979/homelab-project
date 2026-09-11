@@ -1946,6 +1946,32 @@
     <string name="unraid_running_containers">running containers</string>
     <string name="unraid_confirm_title">Confirm action</string>
     <string name="unraid_confirm_message">Run \"%1$s\" on %2$s?</string>
+
+    <!-- WGDashboard -->
+    <string name="service_wgdashboard">WGDashboard</string>
+    <string name="service_wgdashboard_desc">WireGuard tunnels, peers and traffic from WGDashboard</string>
+    <string name="login_hint_wgdashboard">Enter the dashboard URL (e.g. http://192.168.1.10:10086) and an API key created in WGDashboard under Settings &#8594; API Keys. The API has to be switched on there as well.</string>
+    <string name="wgdashboard_connected_peers">connected peers</string>
+    <string name="wgdashboard_summary_title">WireGuard</string>
+    <string name="wgdashboard_metric_tunnels">%1$d / %2$d tunnels up</string>
+    <string name="wgdashboard_metric_peers">%1$d / %2$d peers</string>
+    <string name="wgdashboard_metric_traffic">%1$s total</string>
+    <string name="wgdashboard_metric_received">%1$s received</string>
+    <string name="wgdashboard_metric_sent">%1$s sent</string>
+    <string name="wgdashboard_port">Port %1$s</string>
+    <string name="wgdashboard_no_tunnels">No tunnels configured</string>
+    <string name="wgdashboard_no_peers">No peers in this tunnel</string>
+    <string name="wgdashboard_show_peers">Show peers</string>
+    <string name="wgdashboard_restricted_peers">Restricted peers</string>
+    <string name="wgdashboard_peer_never_connected">Never connected</string>
+    <string name="wgdashboard_peer_traffic">%1$s in · %2$s out</string>
+    <string name="wgdashboard_action_start">Start</string>
+    <string name="wgdashboard_action_stop">Stop</string>
+    <string name="wgdashboard_action_restrict">Restrict</string>
+    <string name="wgdashboard_action_allow">Allow</string>
+    <string name="wgdashboard_action_sent">Action sent</string>
+    <string name="wgdashboard_confirm_title">Confirm action</string>
+    <string name="wgdashboard_confirm_message">Run \"%1$s\" on %2$s?</string>
     <string name="unraid_section_system">System</string>
     <string name="unraid_section_array">Array</string>
     <string name="unraid_section_shares">Shares</string>

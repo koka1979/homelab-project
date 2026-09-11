@@ -114,6 +114,7 @@ private fun dashboardRoute(type: ServiceType, instanceId: String): String {
         ServiceType.PTERODACTYL -> "pterodactyl/$instanceId/dashboard"
         ServiceType.CALAGOPUS -> "calagopus/$instanceId/dashboard"
         ServiceType.UNRAID -> "unraid/$instanceId/dashboard"
+        ServiceType.WGDASHBOARD -> "wgdashboard/$instanceId/dashboard"
         ServiceType.RADARR,
         ServiceType.SONARR,
         ServiceType.LIDARR,
@@ -1409,6 +1410,23 @@ fun AppNavigation() {
                         if (newInstanceId != instanceId) {
                             navController.navigate(dashboardRoute(ServiceType.CALAGOPUS, newInstanceId)) {
                                 popUpTo("calagopus/$instanceId/dashboard") { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
+
+            composable(
+                route = "wgdashboard/{instanceId}/dashboard",
+                arguments = listOf(androidx.navigation.navArgument("instanceId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val instanceId = backStackEntry.arguments?.getString("instanceId") ?: return@composable
+                com.homelab.app.ui.wgdashboard.WgDashboardScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToInstance = { newInstanceId ->
+                        if (newInstanceId != instanceId) {
+                            navController.navigate(dashboardRoute(ServiceType.WGDASHBOARD, newInstanceId)) {
+                                popUpTo("wgdashboard/$instanceId/dashboard") { inclusive = true }
                             }
                         }
                     }

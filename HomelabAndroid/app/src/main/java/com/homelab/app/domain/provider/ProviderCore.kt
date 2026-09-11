@@ -209,6 +209,12 @@ object ProviderRegistry {
                     ProviderCapability.METRICS,
                     ProviderCapability.WRITE_ACTIONS
                 )
+                ServiceType.WGDASHBOARD -> setOf(
+                    ProviderCapability.HEALTH,
+                    ProviderCapability.RESOURCES,
+                    ProviderCapability.METRICS,
+                    ProviderCapability.WRITE_ACTIONS
+                )
                 else -> setOf(ProviderCapability.HEALTH)
             }
             ProviderDescriptor(

@@ -79,6 +79,7 @@ class HomeViewModel @Inject constructor(
     private val pterodactylRepository: PterodactylRepository,
     private val calagopusRepository: CalagopusRepository,
     private val unraidRepository: com.homelab.app.data.repository.UnraidRepository,
+    private val wgDashboardRepository: com.homelab.app.data.repository.WgDashboardRepository,
     private val observabilityRepository: ObservabilityRepository,
     private val infrastructureOperationsRepository: InfrastructureOperationsRepository,
     private val localPreferencesRepository: LocalPreferencesRepository
@@ -431,6 +432,14 @@ class HomeViewModel @Inject constructor(
                 val containers = unraidRepository.getContainers(instanceId)
                 val running = containers.count { it.isRunning }
                 InstanceSummary("$running", "/ ${containers.size}", "unraid_running_containers")
+            }
+            ServiceType.WGDASHBOARD -> {
+                val overview = wgDashboardRepository.getOverview(instanceId)
+                InstanceSummary(
+                    "${overview.connectedPeers}",
+                    "/ ${overview.totalPeers}",
+                    "wgdashboard_connected_peers"
+                )
             }
             else -> null
         }

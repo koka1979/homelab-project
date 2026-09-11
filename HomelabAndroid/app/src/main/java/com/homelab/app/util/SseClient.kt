@@ -65,6 +65,7 @@ class SseClient @Inject constructor(
                 ServiceType.PTERODACTYL -> "Pterodactyl"
                 ServiceType.CALAGOPUS -> "Calagopus"
                 ServiceType.UNRAID -> "Unraid"
+                ServiceType.WGDASHBOARD -> "WGDashboard"
                 ServiceType.UNKNOWN -> "Unknown"
             })
             .build()

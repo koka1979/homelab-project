@@ -532,6 +532,13 @@ class AuthInterceptor @Inject constructor(
                     builder.addHeader("x-api-key", it)
                 }
             }
+            ServiceType.WGDASHBOARD -> {
+                // WGDashboard authenticates API calls with its own header; the key is created
+                // in the dashboard under Settings -> API Keys.
+                instance.apiKey?.trim()?.takeIf { it.isNotBlank() }?.let {
+                    builder.addHeader("wg-dashboard-apikey", it)
+                }
+            }
             ServiceType.PTERODACTYL,
             ServiceType.CALAGOPUS,
             ServiceType.PROMETHEUS,

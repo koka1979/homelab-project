@@ -276,4 +276,10 @@ object NetworkModule {
     fun provideUnraidApi(retrofit: Retrofit): com.homelab.app.data.remote.api.UnraidApi {
         return retrofit.create(com.homelab.app.data.remote.api.UnraidApi::class.java)
     }
+
+    @Provides
+    @Singleton
+    fun provideWgDashboardApi(retrofit: Retrofit): com.homelab.app.data.remote.api.WgDashboardApi {
+        return retrofit.create(com.homelab.app.data.remote.api.WgDashboardApi::class.java)
+    }
 }

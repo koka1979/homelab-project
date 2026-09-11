@@ -338,6 +338,7 @@ private fun InstanceCard(
             "proxmox_guests_running" -> stringResource(R.string.proxmox_guests_running)
             "truenas_healthy_pools" -> stringResource(R.string.truenas_healthy_pools)
             "unraid_running_containers" -> stringResource(R.string.unraid_running_containers)
+            "wgdashboard_connected_peers" -> stringResource(R.string.wgdashboard_connected_peers)
             else -> s.label.lowercase()
         }
     }

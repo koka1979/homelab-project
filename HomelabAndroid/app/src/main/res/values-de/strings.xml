@@ -1590,4 +1590,28 @@
     <string name="proxmox_console_missing_url">Für diese Proxmox-Instanz ist keine URL hinterlegt, die Konsole kann daher nicht geöffnet werden.</string>
     <string name="proxmox_console_requires_login_ticket">Die eingebaute Konsole benötigt ein Proxmox-Login-Ticket. API-Tokens werden nur von der REST-API akzeptiert – lege die Instanz mit Benutzername und Passwort an oder öffne die Konsole in der Proxmox-Weboberfläche.</string>
     <string name="proxmox_console_missing_session">Keine aktive Proxmox-Sitzung. Melde dich erneut an dieser Instanz an und öffne die Konsole neu.</string>
+    <!-- WGDashboard -->
+    <string name="service_wgdashboard_desc">WireGuard-Tunnel, Peers und Datenverkehr aus WGDashboard</string>
+    <string name="login_hint_wgdashboard">Gib die Dashboard-URL an (z. B. http://192.168.1.10:10086) und einen API-Key, den du in WGDashboard unter Einstellungen &#8594; API Keys anlegst. Die API muss dort ebenfalls aktiviert sein.</string>
+    <string name="wgdashboard_connected_peers">verbundene Peers</string>
+    <string name="wgdashboard_summary_title">WireGuard</string>
+    <string name="wgdashboard_metric_tunnels">%1$d / %2$d Tunnel aktiv</string>
+    <string name="wgdashboard_metric_peers">%1$d / %2$d Peers</string>
+    <string name="wgdashboard_metric_traffic">%1$s gesamt</string>
+    <string name="wgdashboard_metric_received">%1$s empfangen</string>
+    <string name="wgdashboard_metric_sent">%1$s gesendet</string>
+    <string name="wgdashboard_port">Port %1$s</string>
+    <string name="wgdashboard_no_tunnels">Keine Tunnel eingerichtet</string>
+    <string name="wgdashboard_no_peers">Keine Peers in diesem Tunnel</string>
+    <string name="wgdashboard_show_peers">Peers anzeigen</string>
+    <string name="wgdashboard_restricted_peers">Gesperrte Peers</string>
+    <string name="wgdashboard_peer_never_connected">Noch nie verbunden</string>
+    <string name="wgdashboard_peer_traffic">%1$s rein · %2$s raus</string>
+    <string name="wgdashboard_action_start">Starten</string>
+    <string name="wgdashboard_action_stop">Stoppen</string>
+    <string name="wgdashboard_action_restrict">Sperren</string>
+    <string name="wgdashboard_action_allow">Freigeben</string>
+    <string name="wgdashboard_action_sent">Aktion gesendet</string>
+    <string name="wgdashboard_confirm_title">Aktion bestätigen</string>
+    <string name="wgdashboard_confirm_message">\"%1$s\" für %2$s ausführen?</string>
 </resources>

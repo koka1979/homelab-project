@@ -37,6 +37,7 @@ import com.homelab.app.data.repository.ProxmoxBackupServerRepository
 import com.homelab.app.data.repository.PterodactylRepository
 import com.homelab.app.data.repository.CalagopusRepository
 import com.homelab.app.data.repository.UnraidRepository
+import com.homelab.app.data.repository.WgDashboardRepository
 import com.homelab.app.domain.model.PiHoleAuthMode
 import com.homelab.app.domain.model.ServiceInstance
 import com.homelab.app.util.ErrorHandler
@@ -84,6 +85,7 @@ class ServiceLoginViewModel @Inject constructor(
     private val pterodactylRepository: PterodactylRepository,
     private val calagopusRepository: CalagopusRepository,
     private val unraidRepository: UnraidRepository,
+    private val wgDashboardRepository: WgDashboardRepository,
     private val observabilityRepository: ObservabilityRepository,
     private val infrastructureOperationsRepository: InfrastructureOperationsRepository
 ) : ViewModel() {
@@ -862,6 +864,23 @@ class ServiceLoginViewModel @Inject constructor(
                         ServiceType.UNRAID -> {
                             require(trimmedApiKey.isNotBlank()) { context.getString(R.string.login_error_api_key_required) }
                             unraidRepository.authenticate(
+                                url = cleanUrl,
+                                apiKey = trimmedApiKey,
+                                fallbackUrl = cleanFallbackUrl,
+                                allowSelfSigned = allowSelfSigned
+                            )
+                            ServiceInstance(
+                                id = instanceId,
+                                type = serviceType,
+                                label = normalizedLabel,
+                                url = cleanUrl,
+                                apiKey = trimmedApiKey,
+                                fallbackUrl = cleanFallbackUrl
+                            )
+                        }
+                        ServiceType.WGDASHBOARD -> {
+                            require(trimmedApiKey.isNotBlank()) { context.getString(R.string.login_error_api_key_required) }
+                            wgDashboardRepository.authenticate(
                                 url = cleanUrl,
                                 apiKey = trimmedApiKey,
                                 fallbackUrl = cleanFallbackUrl,

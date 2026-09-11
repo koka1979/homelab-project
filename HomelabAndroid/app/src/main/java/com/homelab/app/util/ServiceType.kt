@@ -49,6 +49,7 @@ enum class ServiceType(val displayName: String) {
     PTERODACTYL("Pterodactyl"),
     CALAGOPUS("Calagopus"),
     UNRAID("Unraid"),
+    WGDASHBOARD("WGDashboard"),
     UNKNOWN("Unknown");
 
     companion object {
@@ -113,6 +114,10 @@ enum class ServiceType(val displayName: String) {
                 "UNRAID_OS",
                 "UNRAIDOS",
                 "UNRAID_SERVER" -> UNRAID
+                "WGDASHBOARD",
+                "WG_DASHBOARD",
+                "WIREGUARD_DASHBOARD",
+                "WIREGUARDDASHBOARD" -> WGDASHBOARD
                 else -> entries.firstOrNull { it.name == normalized } ?: UNKNOWN
             }
         }

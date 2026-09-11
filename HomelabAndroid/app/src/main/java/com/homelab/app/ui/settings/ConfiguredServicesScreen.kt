@@ -435,6 +435,7 @@ internal fun serviceDisplayNameForSettings(type: ServiceType): String {
         ServiceType.PTERODACTYL -> stringResource(R.string.service_pterodactyl)
         ServiceType.CALAGOPUS -> stringResource(R.string.service_calagopus)
         ServiceType.UNRAID -> stringResource(R.string.service_unraid)
+        ServiceType.WGDASHBOARD -> stringResource(R.string.service_wgdashboard)
         ServiceType.UNKNOWN -> type.displayName
     }
 }

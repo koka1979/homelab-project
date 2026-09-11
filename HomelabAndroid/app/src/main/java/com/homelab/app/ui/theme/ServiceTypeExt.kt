@@ -1,6 +1,7 @@
 package com.homelab.app.ui.theme
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Dashboard
@@ -75,6 +76,7 @@ val ServiceType.primaryColor: Color
         ServiceType.PTERODACTYL -> Color(0xFF5D87FF)
         ServiceType.CALAGOPUS -> Color(0xFF16A34A)
         ServiceType.UNRAID -> if (isThemeDark()) Color(0xFFF15A2C) else Color(0xFFE2571F)
+        ServiceType.WGDASHBOARD -> if (isThemeDark()) Color(0xFFE05C5C) else Color(0xFFB5171E)
         ServiceType.TRUENAS -> if (isThemeDark()) Color(0xFF0095D5) else Color(0xFF0078B0)
         ServiceType.UNKNOWN -> if (isThemeDark()) Color.LightGray else Color.Gray
     }
@@ -124,6 +126,7 @@ val ServiceType.backgroundColor: Color
         ServiceType.PTERODACTYL -> Color(0xFF5D87FF).copy(alpha = 0.12f)
         ServiceType.CALAGOPUS -> Color(0xFF16A34A).copy(alpha = 0.12f)
         ServiceType.UNRAID -> (if (isThemeDark()) Color(0xFFF15A2C) else Color(0xFFE2571F)).copy(alpha = 0.12f)
+        ServiceType.WGDASHBOARD -> (if (isThemeDark()) Color(0xFFE05C5C) else Color(0xFFB5171E)).copy(alpha = 0.12f)
         ServiceType.TRUENAS -> (if (isThemeDark()) Color(0xFF0095D5) else Color(0xFF0078B0)).copy(alpha = 0.12f)
         ServiceType.UNKNOWN -> if (isThemeDark()) Color(0xFF334155) else Color(0xFFF1F5F9)
     }
@@ -172,6 +175,7 @@ val ServiceType.iconUrl: String
         ServiceType.PTERODACTYL -> "https://cdn.jsdelivr.net/gh/selfhst/icons/png/pterodactyl.png"
         ServiceType.CALAGOPUS -> "https://cdn.jsdelivr.net/gh/selfhst/icons/png/calagopus.png"
         ServiceType.UNRAID -> "https://cdn.jsdelivr.net/gh/selfhst/icons/png/unraid.png"
+        ServiceType.WGDASHBOARD -> "https://cdn.jsdelivr.net/gh/selfhst/icons/png/wgdashboard.png"
         ServiceType.TRUENAS -> "https://cdn.jsdelivr.net/gh/selfhst/icons/png/truenas-scale.png"
         ServiceType.UNKNOWN -> ""
     }
@@ -285,5 +289,6 @@ val ServiceType.fallbackIcon: ImageVector
         ServiceType.PTERODACTYL -> Icons.Default.Dns
         ServiceType.CALAGOPUS -> Icons.Default.Dns
         ServiceType.UNRAID -> Icons.Default.Storage
+        ServiceType.WGDASHBOARD -> Icons.Default.VpnKey
         ServiceType.UNKNOWN -> Icons.Default.Widgets
     }

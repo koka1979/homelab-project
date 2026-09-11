@@ -87,6 +87,7 @@ object BackupServiceTypeMapper {
             ServiceType.PTERODACTYL -> "pterodactyl"
             ServiceType.CALAGOPUS -> "calagopus"
             ServiceType.UNRAID -> "unraid"
+            ServiceType.WGDASHBOARD -> "wgdashboard"
             ServiceType.UNKNOWN -> "unknown"
         }
     }
@@ -139,6 +140,7 @@ object BackupServiceTypeMapper {
             "pterodactyl" -> ServiceType.PTERODACTYL
             "calagopus" -> ServiceType.CALAGOPUS
             "unraid", "unraid_os", "unraid-os", "unraidos" -> ServiceType.UNRAID
+            "wgdashboard", "wg_dashboard", "wg-dashboard", "wireguard_dashboard" -> ServiceType.WGDASHBOARD
             else -> null
         }
     }
