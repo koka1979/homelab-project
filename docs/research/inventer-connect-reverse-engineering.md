@@ -4,6 +4,9 @@ Analyse der Android-App `de.inventer.mobile` (Version 5.0.1, `versionCode` 50000
 MD5 `cc06c0f3d8a677051807e5ce9a559f57`, signiert `CN=inventer, O=inventer, C=de`)
 mit dem Ziel, einen inVENTer-Lüfter aus Home Assistant zu steuern.
 
+Zielhardware in diesem Haushalt: **inVENTer Connect mit Regler ohne WLAN**
+(Basic Connect e4/e8 oder easy connect e16). Damit ist Weg B unten der relevante Pfad.
+
 Zweck ist Interoperabilität mit selbst betriebener Hardware. In der EU ist die
 Dekompilierung dafür durch Art. 6 der Software-Richtlinie 2009/24/EG bzw. § 69e UrhG
 gedeckt. Es werden keine Binaries oder dekompilierten Quellen in dieses Repository
@@ -29,83 +32,181 @@ Mitgelieferte Firmware-Images unter `assets/` benennen die Zielsysteme:
 
 Gerätefamilien im SDK: `Calima`, `Momento`, `Sky`, `Magna`, `Mev`, `XFLP`, `Hyper`,
 `Zirconia`. Für inVENTer Connect ist **Zirconia** die relevante Familie (Beleg:
-`ZirconiaRequestWiFiModeWrite`, Zonen-/MEV-Kommandos, Multi-Zonen-Begriffe passend
-zu MZCU). Die Zuordnung Zirconia ↔ „easy connect e16 WiFi" ist aus Funktionsumfang
-und Firmware-Assets erschlossen, nicht aus einem expliziten Namens-String — sie muss
-am realen Gerät bestätigt werden.
+`ZirconiaRequestWiFiModeWrite`, Zonen- und MEV-Kommandos, Multi-Zonen-Begriffe passend
+zu MZCU). Die Zuordnung Zirconia ↔ inVENTer-Connect-Regler ist aus Funktionsumfang
+und Firmware-Assets erschlossen, nicht aus einem expliziten Namens-String — sie ist
+am realen Gerät zu bestätigen.
 
-## Weg A — WLAN (bevorzugt, sofern ein WiFi-Regler vorhanden ist)
+Wichtig für das Systemverständnis: die App redet **immer mit dem Regler**, nie direkt
+mit einer Innenblende. Der Regler hält das eigene 868-MHz-Funknetz zu den Blenden.
+Eine HA-Integration ersetzt also die App gegenüber dem Regler — die Funkstrecke
+dahinter bleibt unangetastet.
 
-Drei Schritte, alle im lokalen Netz:
+## Das Zirconia-Paketformat (gilt für BLE und WLAN gleichermaßen)
 
-**1. Discovery — MDSDP über UDP-Broadcast, Port 47818**
+Beide Transportwege tragen dasselbe Anwendungspaket. Aufbau, `preparePacket()`:
 
-Suchpaket ist 8 Byte: ASCII `MDSDP` + `0x03` (MSG_SEARCH) + 16-Bit-Transaktions-ID
-little-endian. Antwort ist ein 94-Byte-Announce mit IPv4-Adresse, 16-Byte-Geräte-UUID,
-Service-Type-UUID sowie Namensfeldern (Device Name 64, Domain 32, Location 32 Byte).
-Nachrichtentypen: `ANNOUNCE_V4=0`, `ANNOUNCE_V6=1`, `LEAVING=2`, `SEARCH=3`;
-Request-Flag `0x80`, Not-implemented-Flag `0x40`, Typmaske `0x3F`.
+| Offset | Größe | Feld |
+|---|---|---|
+| 0 | 1 | Prüfsumme über Byte 1..`packetSize-1` |
+| 1 | 1 | `packetSize` = Payload-Länge + 10 |
+| 2 | 1 | Backtracking-Count (beim Senden 0) |
+| 3 | 1 | Pakettyp (`STD_TYPE_*`-Ordinal) |
+| 4 | 1 | Operationstyp: `1` = data update, `2` = data request |
+| 5 | 1 | Zieladresse: `0` = Regler, `159` = ESP32-Modul |
+| 6 | 4 | Zeitstempel, Sekunden seit `2000-01-01 00:00:00`, **big-endian** |
+| 10 | n | Payload |
 
-**2. Transport — TCP Port 47820 mit TLS-PSK**
+Maximale Paketgröße 128 Byte. Das Magic `0xA5` steht im `RowPacket`-Header und wird
+beim Senden durch die Prüfsumme an Offset 0 überschrieben.
 
-Kein Zertifikat, sondern Pre-Shared Key. Client bietet genau zwei Cipher Suites an:
-`0x008C` (TLS_PSK_WITH_AES_128_CBC_SHA) und `0x008D` (TLS_PSK_WITH_AES_256_CBC_SHA),
-dazu die Max-Fragment-Length-Extension (Wert 1 = 512 Byte).
+Prüfsumme ist ein CRC-8 mit Polynom `0x07`, Startwert `0x00`, ohne Reflektion —
+allerdings in einer Variante, die erst schiebt und dann das MSB prüft:
+
+```
+crc = 0
+für jedes Byte b:
+    crc ^= b
+    achtmal:
+        crc = (crc << 1) & 0xFF
+        wenn crc & 0x80:        # Test NACH dem Schieben
+            crc ^= 0x07
+```
+
+Diese Reihenfolge weicht von der Lehrbuchvariante ab und muss genau so nachgebaut
+werden, sonst verwirft die Firmware das Paket.
+
+**Lüfter setzen** — Typ `STD_TYPE_USER_OVERRIDE`, ComType 30, OpType 2, Zieladresse 0.
+Payload ist 8 Byte, **little-endian**:
+
+| Offset | Größe | Feld |
+|---|---|---|
+| 0 | 1 | `commandType` |
+| 1 | 1 | `fanSpeed` |
+| 2 | 1 | `fanMode` |
+| 3 | 1 | `zoneID` |
+| 4 | 4 | `timeoutSec` |
+
+`commandType`: `0` none, `1` global boost, `2` global pause, `3` zone boost,
+`4` zone pause, `5` zone speed/mode, `6` zone vent profile, `7` cancel.
+
+Beachte den Endianness-Bruch: der Zeitstempel im Header ist big-endian, die
+Nutzdaten sind little-endian.
+
+Weitere implementierte Kommandos (Auswahl aus 52 Request-Klassen): Boost, Pause,
+Shutdown, Cancel, Zonenname und -schwelle, Lüftungsprofile inklusive Zeitslots,
+Silent Hours, Filterwartungsintervall, Zeitsynchronisation, Geräte-RSSI,
+WLAN-Konfiguration, Device-View-Abfragen sowie Firmware-Update.
+
+Status lesen läuft über `DeviceViewHeader` + `DeviceViewPacketForRow`: das Kopfpaket
+liefert die Zeilenzahl, danach wird je Gerät eine Zeile abgeholt. Feldtypen einer
+Zeile unter anderem `ZONE_ID=1`, `DEVICE_STATUS=3`, `REPEATER_ENABLE=4`,
+`FAN_POLARITY=32`.
+
+## Weg B — BLE zum Connect-Regler (der Pfad für diese Hardware)
+
+Der Regler exponiert **einen einzigen** Transport-Characteristic, über den Pakete
+sowohl geschrieben als auch gelesen werden:
+
+- Characteristic `e6ec2fd8-e888-4eb2-9681-e78ed6ea89e1`
+
+Das ist kein Pax-Profil mit einem Characteristic je Funktion, sondern ein
+paketorientierter Kanal. Die Fragmentierung ist selbstgebaut und läuft **poll-basiert**,
+nicht über Notifications. Rahmen sind fest 20 Byte (klassische ATT-Payload bei MTU 23),
+davon 3 Byte Rahmenkopf und 17 Byte Nutzlast:
+
+| Offset | Größe | Feld |
+|---|---|---|
+| 0 | 1 | Fragmentindex (high nibble, 1-basiert) und Gesamtzahl (low nibble) |
+| 1 | 1 | CRC-8 über die 17 Nutzlastbytes dieses Rahmens |
+| 2 | 1 | Ack |
+| 3 | 17 | Nutzlast |
+
+Der CRC in Byte 1 verwendet dieselbe Routine wie die Paketprüfsumme oben. Das letzte
+Fragment wird vor der CRC-Bildung mit Nullbytes auf 17 aufgefüllt.
+
+**Senden** (`Utils.prepareProtocolData`): Fragmentzahl ist `ceil(packetSize / 17)`,
+alle Rahmen werden am Stück geschrieben.
+
+**Empfangen**: der Client liest denselben Characteristic wiederholt aus. Nutzlast ab
+Offset 3, Ziel im Reassemblypuffer ist `(index - 1) * 17`. Der CRC in Byte 1 wird
+beim Lesen ignoriert. Nach jedem Fragment schreibt der Client einen 20-Byte-Rahmen
+mit `byte[2] = index` als Quittung und holt das nächste. Index `0` signalisiert
+Fehler und führt zum Abbruch; Abbruch/Reset sendet `byte[2] = 0xFF`. Nach der
+Reassemblierung muss `buffer[3]` dem erwarteten Pakettyp entsprechen, sonst verwirft
+die App. Reassemblypuffer ist 256 Byte. Vor dem ersten Request wartet die App 100 ms,
+Schreibvorgänge haben 10 s Timeout.
+
+### Authentifizierung
+
+Vor dem Nutzdatenverkehr läuft ein PIN-Handshake auf dem Connection-Service:
+
+- Service `e6834e4b-7b3a-48e6-91e4-f1d005f564d3`
+- PIN schreiben: `4cad343a-209a-40b7-b911-4d9b3df569b2`, 4 Byte Integer little-endian
+- Bestätigung lesen: `d1ae6b70-ee12-4f6d-b166-d2063dcaffe1`
+
+Die App liest die Hardware-Revision (`00002a27-…`) und verzweigt: bei `"02.00"` wird
+zuerst die Geräte-UUID gelesen, sonst direkt der PIN-Pfad. Die PIN stammt je nach
+Ablauf aus der Geräte-ID oder wird vom Gerät selbst gelesen — am realen Regler zu
+klären, ob sie auf dem Typenschild steht oder in der App sichtbar ist.
+
+### Praktische Bauform
+
+BLE bindet einen Adapter an den Regler und ist reichweitenkritisch. Für Dauerbetrieb
+ist ein **ESPHome-BLE-Proxy** in Reichweite des Reglers die realistische Lösung; der
+HA-Host selbst steht meist zu weit weg. Da der Kanal poll-basiert ist und pro
+Statusabfrage mehrere Round-Trips braucht, sollte die Integration einen
+`DataUpdateCoordinator` mit moderatem Intervall verwenden und nicht pro Entity pollen.
+
+Offen und am Gerät zu prüfen: ob der Regler parallele Verbindungen zulässt oder ob
+die App die Verbindung exklusiv hält. Falls exklusiv, konkurrieren App und HA um den
+Regler — dann ist die App nur noch als Rückfallebene nutzbar.
+
+## Weg A — WLAN (nur mit WiFi-fähigem Regler, hier nicht vorhanden)
+
+Dokumentiert für den Fall einer späteren Nachrüstung auf easy connect e16 WiFi.
+
+**Discovery** — MDSDP über UDP-Broadcast, Port 47818. Suchpaket ist 8 Byte: ASCII
+`MDSDP` + `0x03` (MSG_SEARCH) + 16-Bit-Transaktions-ID little-endian. Antwort ist ein
+94-Byte-Announce mit IPv4-Adresse, 16-Byte-Geräte-UUID, Service-Type-UUID sowie
+Namensfeldern (Device Name 64, Domain 32, Location 32 Byte). Nachrichtentypen:
+`ANNOUNCE_V4=0`, `ANNOUNCE_V6=1`, `LEAVING=2`, `SEARCH=3`; Request-Flag `0x80`,
+Not-implemented-Flag `0x40`, Typmaske `0x3F`. Sonde: `inventer-mdsdp-discover.py`
+in diesem Verzeichnis.
+
+**Transport** — TCP Port 47820 mit TLS-PSK, kein Zertifikat. Client bietet genau zwei
+Cipher Suites an: `0x008C` (TLS_PSK_WITH_AES_128_CBC_SHA) und `0x008D`
+(TLS_PSK_WITH_AES_256_CBC_SHA), dazu die Max-Fragment-Length-Extension (Wert 1).
 
 Die **PSK-Identity ist fest `"12345"`**. Der PSK selbst ist ein String, den die App
 **einmalig über BLE vom Regler ausliest** und danach lokal speichert:
 
 - Service `e6834e4b-7b3a-48e6-91e4-f1d005f564d3`
-- Characteristic `638ff62c-3823-4e0f-8179-1695c46ee8ad` (PSK)
-- Characteristic `98faf8a5-1ee6-4b0c-911e-dc37bff5206f` (Geräte-UUID)
-- PIN-Handshake über `4cad343a-209a-40b7-b911-4d9b3df569b2` (PIN schreiben)
-  und `d1ae6b70-ee12-4f6d-b166-d2063dcaffe1` (Bestätigung lesen)
+- PSK: `638ff62c-3823-4e0f-8179-1695c46ee8ad`
+- Geräte-UUID: `98faf8a5-1ee6-4b0c-911e-dc37bff5206f`
 
-Das ist der eigentliche Schlüssel zur Integration: der PSK muss genau **einmal**
-ausgelesen werden (per `bluetoothctl`/`gatttool`, oder indem man ihn aus den
-SharedPreferences einer bereits gekoppelten App-Installation zieht), danach ist die
-WLAN-Verbindung dauerhaft ohne Bluetooth nutzbar.
+Darüber läuft dasselbe Zirconia-Paketformat wie bei BLE, nur ohne die 20-Byte-
+Fragmentierung.
 
-**3. Protokoll — Zirconia-Paketformat**
+## Weg C — 0–10 V am sMove-Regler (andere Gerätegeneration)
 
-Paket beginnt mit Magic `0xA5`, dann Typ (`STD_TYPE_*`), Com-Type, Zieladresse
-(`0` = Regler, `159` = ESP32-Modul), Payload und Tail. Zeitstempel sind Sekunden
-seit `2000-01-01 00:00:00`.
+Bei älteren Anlagen mit sMove-Regler ist Reverse Engineering überflüssig. Der sMove
+hat einen 0–10-V-Steuereingang mit dokumentierten Spannungsfenstern (ca. 0 V Abluft
+St. 3, 1 V Abluft St. 4, 2 V Abluft St. 2, 3 V Abluft St. 1, 4 V aus,
+5–8 V Wärmerückgewinnung St. 1–4; Eingangsimpedanz ca. 6,4 kΩ). Ein Shelly-Dimmer
+oder ein 0–10-V-Modul genügt.
 
-Lüfter setzen (`STD_TYPE_USER_OVERRIDE`, ComType 30) trägt eine 8-Byte-Payload,
-little-endian:
+## Nicht relevant hier: Pax-GATT-Profil für Einzelgeräte
 
-| Offset | Größe | Feld |
-|---|---|---|
-| 0 | 1 | commandType |
-| 1 | 1 | fanSpeed |
-| 2 | 1 | fanMode |
-| 3 | 1 | zoneID |
-| 4 | 4 | timeoutSec |
-
-`commandType`: `0` none, `1` global boost, `2` global pause, `3` zone boost,
-`4` zone pause, `5` zone speed/mode, `6` zone vent profile, `7` cancel.
-
-Weitere implementierte Kommandos (Auswahl aus 52 Request-Klassen): Boost, Pause,
-Shutdown, Cancel, Zonenname/-schwelle, Lüftungsprofile inkl. Zeitslots, Silent Hours,
-Filterwartungsintervall, Zeitsynchronisation, Geräte-RSSI, WLAN-Konfiguration,
-Device-View-Abfragen (Status je Gerätezeile) sowie Firmware-Update.
-
-Status lesen läuft über `DeviceViewHeader` + `DeviceViewPacketForRow` — Kopfpaket
-liefert die Zeilenzahl, danach wird je Gerät eine Zeile abgeholt.
-
-## Weg B — Bluetooth LE direkt
-
-Falls kein WiFi-Regler vorhanden ist oder einzelne Lüfter direkt angesprochen werden
-sollen. Das SDK benutzt hier das Pax-GATT-Profil (Volution besitzt auch Pax), dessen
-Ältere Varianten in der Home-Assistant-Community bereits umgesetzt sind — als
-Referenzimplementierung für eigene Arbeit brauchbar.
+Das SDK enthält zusätzlich das klassische Pax-Profil (Volution besitzt auch Pax) für
+eigenständige Lüfter der Familien Calima/XFLP/Hyper — ein Characteristic je Funktion
+statt eines Paketkanals. Für das Connect-System wird es nicht verwendet, für die
+PIN-Charakteristiken und die Geräteinformationen aber schon. Festgehalten, falls
+später ein Einzelgerät ohne Regler dazukommt.
 
 Services: Config `c119e858-0531-4681-9674-5a11f0e53bb4`,
 Connection `e6834e4b-7b3a-48e6-91e4-f1d005f564d3`,
 Status `1a46a853-e5ed-4696-bac0-70e346884a26`.
-
-Wesentliche Characteristics:
 
 | Funktion | UUID |
 |---|---|
@@ -129,41 +230,30 @@ Wesentliche Characteristics:
 | Status | `25a824ad-3021-4de9-9f2f-60cf8d17bded` |
 | Reset | `ff5f7c4f-2606-4c69-b360-15aaea58ad5f` |
 
-Für die Multi-Zonen-Variante (Momento) gilt Service `75430500-d8c7-11e6-88f3-8fb4792b4153`
-mit Slot-basierten Characteristics (`...0507` Slot-Auswahl, `...0508` Slot-Daten,
-`...0509` Slot-Name, `...0503` Heizstufe, `...050e` Mode).
+Für die Multi-Zonen-Variante (Momento) gilt Service
+`75430500-d8c7-11e6-88f3-8fb4792b4153` mit Slot-basierten Characteristics
+(`…0507` Slot-Auswahl, `…0508` Slot-Daten, `…0509` Slot-Name, `…0503` Heizstufe,
+`…050e` Mode).
 
-Einschränkung: BLE bindet einen Bluetooth-Adapter dauerhaft an einen Lüfter und ist
-reichweitenkritisch. Für einen dauerhaften HA-Betrieb ist ein ESPHome-BLE-Proxy in
-Reichweite des Bads die realistische Bauform.
+## Nächste Schritte
 
-## Weg C — 0–10 V am sMove-Regler
-
-Wenn es ein älteres System mit sMove-Regler ist, ist Reverse Engineering überflüssig.
-Der sMove hat einen 0–10-V-Steuereingang mit dokumentierten Spannungsfenstern
-(ca. 0 V Abluft St. 3, 1 V Abluft St. 4, 2 V Abluft St. 2, 3 V Abluft St. 1,
-4 V aus, 5–8 V Wärmerückgewinnung St. 1–4; Eingangsimpedanz ca. 6,4 kΩ). Ein
-Shelly-Dimmer oder ein 0–10-V-Modul genügt — das ist der übliche Community-Weg und
-in ein bis zwei Stunden erledigt.
-
-## Empfohlenes Vorgehen
-
-1. Hardware bestimmen: welcher Regler hängt am Bad-Lüfter (sMove s4/s8,
-   Basic Connect e4/e8, easy connect e16, e16 WiFi)?
-2. Bei sMove → Weg C, fertig.
-3. Bei Connect mit WiFi-Regler → Weg A. Reihenfolge: UDP-Discovery mit
-   `inventer-mdsdp-discover.py` in diesem Verzeichnis bestätigen (schnellster
-   Machbarkeitstest, kein BLE nötig),
-   dann PSK per BLE auslesen, dann TLS-PSK-Handshake gegen Port 47820, dann
-   Device-View lesen, zuletzt Schreibkommandos.
-4. Bei Connect ohne WiFi → Weg B mit ESPHome-BLE-Proxy.
-5. Anbindung in HA als Custom Component (`fan`-Entity mit Preset-Modes für die
-   Stufen, plus Boost als `switch` und Feuchte/Temperatur als `sensor`).
+1. GATT-Scan des Reglers mit `inventer-ble-probe.py` in diesem Verzeichnis — bestätigt
+   das Gerät, listet Services und prüft, ob `e6ec2fd8-…` vorhanden ist. Kein Schreiben,
+   kein Risiko. Das Skript enthält zusätzlich Paketbau, Prüfsumme und Fragmentierung
+   als nachnutzbare Bausteine; `--selftest` verifiziert sie ohne Hardware.
+2. PIN klären (Typenschild, Handbuch oder App-Oberfläche) und den Handshake nachbauen.
+3. Ein Device-View-Paket lesen — erster echter Protokoll-Round-Trip, immer noch
+   lesend.
+4. Erst danach ein `USER_OVERRIDE` schreiben, zunächst mit kurzem `timeoutSec`, damit
+   der Regler von selbst zurückfällt.
+5. Integration als HA-Custom-Component: `fan`-Entity mit Preset-Modes für die Stufen,
+   Boost als `switch`, Feuchte und Temperatur als `sensor`, alles über einen
+   gemeinsamen `DataUpdateCoordinator`.
 
 ## Offene Punkte
 
-- Zuordnung Zirconia ↔ konkretes inVENTer-Reglermodell am Gerät verifizieren.
-- Vollständige Feldbelegung von `ProtocolPacket` (Tail/Prüfsumme) ist im SDK
-  vorhanden, hier noch nicht ausgeschrieben.
-- Ob der Regler mehrere gleichzeitige TLS-Sessions erlaubt (App + HA parallel)
-  ist offen und praktisch zu testen.
+- Zuordnung Zirconia ↔ konkretes Reglermodell am Gerät verifizieren.
+- Herkunft der PIN (Typenschild vs. gerätegeneriert) klären.
+- Ob der Regler parallele Verbindungen zulässt, ist praktisch zu testen.
+- Vollständige Feldbelegung der Device-View-Zeilen ist im SDK vorhanden, hier noch
+  nicht ausgeschrieben.
