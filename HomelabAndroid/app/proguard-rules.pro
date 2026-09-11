@@ -16,3 +16,9 @@
 
 # Enum constants are read back by name from preferences and backup files.
 -keepclassmembers enum com.homelab.app.** { *; }
+
+# WorkManager instantiates workers by name through their (Context, WorkerParameters)
+# constructor, which R8 cannot see from the code that only schedules them.
+-keep class * extends androidx.work.ListenableWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}

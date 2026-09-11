@@ -66,6 +66,7 @@ class SseClient @Inject constructor(
                 ServiceType.CALAGOPUS -> "Calagopus"
                 ServiceType.UNRAID -> "Unraid"
                 ServiceType.WGDASHBOARD -> "WGDashboard"
+                ServiceType.OVH_DYNDNS -> "OvhDynDns"
                 ServiceType.UNKNOWN -> "Unknown"
             })
             .build()

@@ -88,6 +88,7 @@ object BackupServiceTypeMapper {
             ServiceType.CALAGOPUS -> "calagopus"
             ServiceType.UNRAID -> "unraid"
             ServiceType.WGDASHBOARD -> "wgdashboard"
+            ServiceType.OVH_DYNDNS -> "ovh_dyndns"
             ServiceType.UNKNOWN -> "unknown"
         }
     }
@@ -141,6 +142,7 @@ object BackupServiceTypeMapper {
             "calagopus" -> ServiceType.CALAGOPUS
             "unraid", "unraid_os", "unraid-os", "unraidos" -> ServiceType.UNRAID
             "wgdashboard", "wg_dashboard", "wg-dashboard", "wireguard_dashboard" -> ServiceType.WGDASHBOARD
+            "ovh_dyndns", "ovh-dyndns", "ovhdyndns", "dynhost" -> ServiceType.OVH_DYNDNS
             else -> null
         }
     }

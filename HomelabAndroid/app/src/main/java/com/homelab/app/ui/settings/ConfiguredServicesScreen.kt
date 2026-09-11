@@ -436,6 +436,7 @@ internal fun serviceDisplayNameForSettings(type: ServiceType): String {
         ServiceType.CALAGOPUS -> stringResource(R.string.service_calagopus)
         ServiceType.UNRAID -> stringResource(R.string.service_unraid)
         ServiceType.WGDASHBOARD -> stringResource(R.string.service_wgdashboard)
+        ServiceType.OVH_DYNDNS -> stringResource(R.string.service_ovh_dyndns)
         ServiceType.UNKNOWN -> type.displayName
     }
 }

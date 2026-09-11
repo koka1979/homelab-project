@@ -50,6 +50,7 @@ enum class ServiceType(val displayName: String) {
     CALAGOPUS("Calagopus"),
     UNRAID("Unraid"),
     WGDASHBOARD("WGDashboard"),
+    OVH_DYNDNS("OVH DynDNS"),
     UNKNOWN("Unknown");
 
     companion object {
@@ -118,6 +119,11 @@ enum class ServiceType(val displayName: String) {
                 "WG_DASHBOARD",
                 "WIREGUARD_DASHBOARD",
                 "WIREGUARDDASHBOARD" -> WGDASHBOARD
+                "OVH_DYNDNS",
+                "OVHDYNDNS",
+                "OVH",
+                "DYNHOST",
+                "OVH_DYNHOST" -> OVH_DYNDNS
                 else -> entries.firstOrNull { it.name == normalized } ?: UNKNOWN
             }
         }

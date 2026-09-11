@@ -115,6 +115,7 @@ private fun dashboardRoute(type: ServiceType, instanceId: String): String {
         ServiceType.CALAGOPUS -> "calagopus/$instanceId/dashboard"
         ServiceType.UNRAID -> "unraid/$instanceId/dashboard"
         ServiceType.WGDASHBOARD -> "wgdashboard/$instanceId/dashboard"
+        ServiceType.OVH_DYNDNS -> "ovh-dyndns/$instanceId/dashboard"
         ServiceType.RADARR,
         ServiceType.SONARR,
         ServiceType.LIDARR,
@@ -1410,6 +1411,23 @@ fun AppNavigation() {
                         if (newInstanceId != instanceId) {
                             navController.navigate(dashboardRoute(ServiceType.CALAGOPUS, newInstanceId)) {
                                 popUpTo("calagopus/$instanceId/dashboard") { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
+
+            composable(
+                route = "ovh-dyndns/{instanceId}/dashboard",
+                arguments = listOf(androidx.navigation.navArgument("instanceId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val instanceId = backStackEntry.arguments?.getString("instanceId") ?: return@composable
+                com.homelab.app.ui.dyndns.OvhDynDnsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToInstance = { newInstanceId ->
+                        if (newInstanceId != instanceId) {
+                            navController.navigate(dashboardRoute(ServiceType.OVH_DYNDNS, newInstanceId)) {
+                                popUpTo("ovh-dyndns/$instanceId/dashboard") { inclusive = true }
                             }
                         }
                     }

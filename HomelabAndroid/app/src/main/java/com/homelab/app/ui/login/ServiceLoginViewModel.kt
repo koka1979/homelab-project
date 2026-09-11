@@ -37,6 +37,7 @@ import com.homelab.app.data.repository.ProxmoxBackupServerRepository
 import com.homelab.app.data.repository.PterodactylRepository
 import com.homelab.app.data.repository.CalagopusRepository
 import com.homelab.app.data.repository.UnraidRepository
+import com.homelab.app.data.repository.OvhDynDnsRepository
 import com.homelab.app.data.repository.WgDashboardRepository
 import com.homelab.app.domain.model.PiHoleAuthMode
 import com.homelab.app.domain.model.ServiceInstance
@@ -86,6 +87,7 @@ class ServiceLoginViewModel @Inject constructor(
     private val calagopusRepository: CalagopusRepository,
     private val unraidRepository: UnraidRepository,
     private val wgDashboardRepository: WgDashboardRepository,
+    private val ovhDynDnsRepository: OvhDynDnsRepository,
     private val observabilityRepository: ObservabilityRepository,
     private val infrastructureOperationsRepository: InfrastructureOperationsRepository
 ) : ViewModel() {
@@ -877,6 +879,44 @@ class ServiceLoginViewModel @Inject constructor(
                                 apiKey = trimmedApiKey,
                                 fallbackUrl = cleanFallbackUrl
                             )
+                        }
+                        ServiceType.OVH_DYNDNS -> {
+                            require(trimmedUsername.isNotBlank()) { context.getString(R.string.login_error_username_required) }
+                            require(trimmedPassword.isNotBlank()) { context.getString(R.string.login_error_password_required) }
+                            val candidate = ServiceInstance(
+                                id = instanceId,
+                                type = serviceType,
+                                label = normalizedLabel,
+                                url = cleanUrl,
+                                username = trimmedUsername,
+                                password = trimmedPassword,
+                                fallbackUrl = cleanFallbackUrl
+                            )
+                            // Saving is the first update: it is the only way to verify the
+                            // DynHost credentials, and pointing the record at the address this
+                            // phone has right now is what the user came here for.
+                            val addresses = ovhDynDnsRepository.detectAddresses()
+                            if (!addresses.hasAny) {
+                                throw IllegalStateException(context.getString(R.string.dyndns_error_no_address))
+                            }
+                            val report = ovhDynDnsRepository.update(
+                                instance = candidate,
+                                addresses = addresses,
+                                types = com.homelab.app.domain.dyndns.DynDnsRecordType.entries.toSet(),
+                                force = true
+                            )
+                            report.failures
+                                .firstOrNull { it.code == "badauth" || it.code == "notfqdn" }
+                                ?.let { throw IllegalStateException(it.message) }
+                            // A single family without its own DynHost record is normal - the
+                            // user may only run IPv4 - so only a failure of every family counts.
+                            if (report.failures.size == report.outcomes.size) {
+                                throw IllegalStateException(
+                                    report.failures.firstOrNull()?.message
+                                        ?: context.getString(R.string.dyndns_error_update_failed)
+                                )
+                            }
+                            candidate
                         }
                         ServiceType.WGDASHBOARD -> {
                             require(trimmedApiKey.isNotBlank()) { context.getString(R.string.login_error_api_key_required) }

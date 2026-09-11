@@ -1645,4 +1645,35 @@
     <string name="wgdashboard_action_sent">Aktion gesendet</string>
     <string name="wgdashboard_confirm_title">Aktion bestätigen</string>
     <string name="wgdashboard_confirm_message">\"%1$s\" für %2$s ausführen?</string>
+    <!-- OVH DynDNS -->
+    <string name="service_ovh_dyndns_desc">Hält einen OVH-DynHost-Eintrag auf deiner aktuellen IP-Adresse</string>
+    <string name="login_hint_ovh_dyndns">Gib den Hostnamen des DynHost-Eintrags an (z. B. home.example.com) sowie DynHost-Benutzer und -Passwort aus dem OVH-Kundencenter. Lege pro Adressfamilie einen DynHost-Eintrag an: A für IPv4, AAAA für IPv6.</string>
+    <string name="dyndns_update_now">Jetzt aktualisieren</string>
+    <string name="dyndns_no_hostname">Kein Hostname hinterlegt</string>
+    <string name="dyndns_last_run">Zuletzt: %1$s</string>
+    <string name="dyndns_never_run">Noch nicht aktualisiert</string>
+    <string name="dyndns_current_addresses">Aktuelle Adressen</string>
+    <string name="dyndns_ipv4">IPv4</string>
+    <string name="dyndns_ipv6">IPv6</string>
+    <string name="dyndns_unavailable">Nicht verfügbar</string>
+    <string name="dyndns_auto_update">Automatisch aktualisieren</string>
+    <string name="dyndns_auto_update_hint">Prüft im Hintergrund und sendet nur eine Adresse, die sich geändert hat.</string>
+    <string name="dyndns_auto_enabled">Automatische Aktualisierung eingeschaltet</string>
+    <string name="dyndns_auto_disabled">Automatische Aktualisierung ausgeschaltet</string>
+    <string name="dyndns_interval">Intervall</string>
+    <string name="dyndns_interval_minutes">%1$d Min.</string>
+    <string name="dyndns_interval_hours">%1$d Std.</string>
+    <string name="dyndns_families">Adressfamilien</string>
+    <string name="dyndns_record_hint">Jede Familie braucht bei OVH einen eigenen DynHost-Eintrag.</string>
+    <string name="dyndns_outcome_updated">%1$s: auf %2$s gesetzt</string>
+    <string name="dyndns_outcome_unchanged">%1$s: bereits %2$s</string>
+    <string name="dyndns_outcome_skipped">%1$s: übersprungen (%2$s)</string>
+    <string name="dyndns_outcome_failed">%1$s: %2$s</string>
+    <string name="dyndns_error_unknown_instance">Diese Instanz existiert nicht mehr</string>
+    <string name="dyndns_error_no_family">Wähle mindestens eine Adressfamilie</string>
+    <string name="dyndns_hostname_label">Hostname (DynHost)</string>
+    <string name="dyndns_hostname_hint">home.example.com</string>
+    <string name="dyndns_error_no_address">In diesem Netz konnte keine öffentliche Adresse ermittelt werden</string>
+    <string name="dyndns_error_update_failed">OVH hat die Aktualisierung abgelehnt</string>
+    <string name="dyndns_published_address">veröffentlichte Adresse</string>
 </resources>

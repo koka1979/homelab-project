@@ -339,6 +339,7 @@ private fun InstanceCard(
             "truenas_healthy_pools" -> stringResource(R.string.truenas_healthy_pools)
             "unraid_running_containers" -> stringResource(R.string.unraid_running_containers)
             "wgdashboard_connected_peers" -> stringResource(R.string.wgdashboard_connected_peers)
+            "dyndns_published_address" -> stringResource(R.string.dyndns_published_address)
             else -> s.label.lowercase()
         }
     }

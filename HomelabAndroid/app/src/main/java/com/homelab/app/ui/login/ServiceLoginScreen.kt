@@ -252,6 +252,7 @@ fun ServiceLoginScreen(
                 ServiceType.CALAGOPUS -> stringResource(R.string.login_hint_calagopus)
                 ServiceType.UNRAID -> stringResource(R.string.login_hint_unraid)
                 ServiceType.WGDASHBOARD -> stringResource(R.string.login_hint_wgdashboard)
+                ServiceType.OVH_DYNDNS -> stringResource(R.string.login_hint_ovh_dyndns)
                 ServiceType.PROXMOX_BACKUP_SERVER -> stringResource(R.string.login_hint_proxmox_backup_server)
                 ServiceType.PROMETHEUS -> stringResource(R.string.login_hint_prometheus)
                 ServiceType.GRAFANA -> stringResource(R.string.login_hint_grafana)
@@ -442,8 +443,26 @@ fun ServiceLoginScreen(
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
-                label = { Text(stringResource(R.string.login_instance_url)) },
-                placeholder = { Text(stringResource(R.string.login_url_hint)) },
+                label = {
+                    Text(
+                        // A DynHost instance is addressed by the host name of its record, not by
+                        // a service URL, so the field says what it wants.
+                        if (serviceType == ServiceType.OVH_DYNDNS) {
+                            stringResource(R.string.dyndns_hostname_label)
+                        } else {
+                            stringResource(R.string.login_instance_url)
+                        }
+                    )
+                },
+                placeholder = {
+                    Text(
+                        if (serviceType == ServiceType.OVH_DYNDNS) {
+                            stringResource(R.string.dyndns_hostname_hint)
+                        } else {
+                            stringResource(R.string.login_url_hint)
+                        }
+                    )
+                },
                 leadingIcon = { Icon(Icons.Default.Language, contentDescription = stringResource(R.string.login_instance_url)) },
                 singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),

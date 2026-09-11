@@ -2030,4 +2030,37 @@
     <string name="unraid_action_force_stop">Force stop</string>
     <string name="unraid_action_parity_start">Parity check</string>
     <string name="unraid_action_parity_cancel">Cancel parity check</string>
+    <!-- OVH DynDNS -->
+    <string name="service_ovh_dyndns">OVH DynDNS</string>
+    <string name="service_ovh_dyndns_desc">Keeps an OVH DynHost record pointing at your current IP address</string>
+    <string name="login_hint_ovh_dyndns">Enter the host name of the DynHost record (e.g. home.example.com) plus the DynHost user name and password from the OVH control panel. Create one DynHost record per address family: A for IPv4, AAAA for IPv6.</string>
+    <string name="dyndns_update_now">Update now</string>
+    <string name="dyndns_no_hostname">No host name configured</string>
+    <string name="dyndns_last_run">Last run: %1$s</string>
+    <string name="dyndns_never_run">Not updated yet</string>
+    <string name="dyndns_current_addresses">Current addresses</string>
+    <string name="dyndns_ipv4">IPv4</string>
+    <string name="dyndns_ipv6">IPv6</string>
+    <string name="dyndns_unavailable">Unavailable</string>
+    <string name="dyndns_auto_update">Update automatically</string>
+    <string name="dyndns_auto_update_hint">Checks in the background and only sends an address that changed.</string>
+    <string name="dyndns_auto_enabled">Automatic updates switched on</string>
+    <string name="dyndns_auto_disabled">Automatic updates switched off</string>
+    <string name="dyndns_interval">Interval</string>
+    <string name="dyndns_interval_minutes">%1$d min</string>
+    <string name="dyndns_interval_hours">%1$d h</string>
+    <string name="dyndns_families">Address families</string>
+    <string name="dyndns_record_hint">Each family needs its own DynHost record at OVH.</string>
+    <string name="dyndns_outcome_updated">%1$s: updated to %2$s</string>
+    <string name="dyndns_outcome_unchanged">%1$s: already %2$s</string>
+    <string name="dyndns_outcome_skipped">%1$s: skipped (%2$s)</string>
+    <string name="dyndns_outcome_failed">%1$s: %2$s</string>
+    <string name="dyndns_error_unknown_instance">This instance no longer exists</string>
+    <string name="dyndns_error_no_family">Select at least one address family</string>
+    <string name="dyndns_running_hostname">host name</string>
+    <string name="dyndns_hostname_label">Host name (DynHost)</string>
+    <string name="dyndns_hostname_hint">home.example.com</string>
+    <string name="dyndns_error_no_address">No public address could be determined on this network</string>
+    <string name="dyndns_error_update_failed">OVH refused the update</string>
+    <string name="dyndns_published_address">published address</string>
 </resources>

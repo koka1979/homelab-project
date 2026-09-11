@@ -215,6 +215,10 @@ object ProviderRegistry {
                     ProviderCapability.METRICS,
                     ProviderCapability.WRITE_ACTIONS
                 )
+                ServiceType.OVH_DYNDNS -> setOf(
+                    ProviderCapability.HEALTH,
+                    ProviderCapability.WRITE_ACTIONS
+                )
                 else -> setOf(ProviderCapability.HEALTH)
             }
             ProviderDescriptor(

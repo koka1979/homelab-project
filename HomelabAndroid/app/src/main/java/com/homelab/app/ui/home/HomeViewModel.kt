@@ -80,6 +80,7 @@ class HomeViewModel @Inject constructor(
     private val calagopusRepository: CalagopusRepository,
     private val unraidRepository: com.homelab.app.data.repository.UnraidRepository,
     private val wgDashboardRepository: com.homelab.app.data.repository.WgDashboardRepository,
+    private val dynDnsStateStore: com.homelab.app.domain.dyndns.DynDnsStateStore,
     private val observabilityRepository: ObservabilityRepository,
     private val infrastructureOperationsRepository: InfrastructureOperationsRepository,
     private val localPreferencesRepository: LocalPreferencesRepository
@@ -432,6 +433,12 @@ class HomeViewModel @Inject constructor(
                 val containers = unraidRepository.getContainers(instanceId)
                 val running = containers.count { it.isRunning }
                 InstanceSummary("$running", "/ ${containers.size}", "unraid_running_containers")
+            }
+            ServiceType.OVH_DYNDNS -> {
+                // No network call here: the tile shows what the last run actually published.
+                val state = dynDnsStateStore.state(instanceId)
+                val address = state.lastIpv4 ?: state.lastIpv6
+                address?.let { InstanceSummary(it, "", "dyndns_published_address") }
             }
             ServiceType.WGDASHBOARD -> {
                 val overview = wgDashboardRepository.getOverview(instanceId)
