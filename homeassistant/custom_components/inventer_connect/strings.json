@@ -19,6 +19,13 @@
         "data_description": {
           "zone": "Which ventilation zone this entry controls. Zone 0 is the first zone."
         }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter PIN",
+        "description": "{name} rejected the stored PIN. Enter it again.",
+        "data": {
+          "pin": "PIN"
+        }
       }
     },
     "error": {
@@ -27,7 +34,8 @@
     },
     "abort": {
       "already_configured": "This controller is already configured.",
-      "no_devices_found": "No inVENTer controller found nearby."
+      "no_devices_found": "No inVENTer controller found nearby.",
+      "reauth_successful": "The PIN was updated."
     }
   },
   "options": {
@@ -49,20 +57,44 @@
       }
     },
     "sensor": {
-      "indoor_temperature": {"name": "Indoor temperature"},
-      "indoor_humidity": {"name": "Indoor humidity"},
-      "outdoor_temperature": {"name": "Outdoor temperature"},
-      "outdoor_humidity": {"name": "Outdoor humidity"},
-      "carbon_dioxide": {"name": "CO2"},
-      "volatile_organic_compounds": {"name": "VOC"},
-      "fan_speed": {"name": "Fan speed"},
-      "override_remaining": {"name": "Override remaining"}
+      "indoor_temperature": {
+        "name": "Indoor temperature"
+      },
+      "indoor_humidity": {
+        "name": "Indoor humidity"
+      },
+      "outdoor_temperature": {
+        "name": "Outdoor temperature"
+      },
+      "outdoor_humidity": {
+        "name": "Outdoor humidity"
+      },
+      "carbon_dioxide": {
+        "name": "CO2"
+      },
+      "volatile_organic_compounds": {
+        "name": "VOC"
+      },
+      "fan_speed": {
+        "name": "Fan speed"
+      },
+      "override_remaining": {
+        "name": "Override remaining"
+      }
     },
     "binary_sensor": {
-      "boost_active": {"name": "Boost active"},
-      "pause_active": {"name": "Pause active"},
-      "timer_active": {"name": "Timer active"},
-      "global_command": {"name": "Global command active"}
+      "boost_active": {
+        "name": "Boost active"
+      },
+      "pause_active": {
+        "name": "Pause active"
+      },
+      "timer_active": {
+        "name": "Timer active"
+      },
+      "global_command": {
+        "name": "Global command active"
+      }
     }
   }
 }

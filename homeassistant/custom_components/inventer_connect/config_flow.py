@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
@@ -36,6 +37,8 @@ PIN_SCHEMA = vol.Schema(
     }
 )
 
+REAUTH_SCHEMA = vol.Schema({vol.Required(CONF_PIN): cv.positive_int})
+
 
 class InventerConfigFlow(ConfigFlow, domain=DOMAIN):
     """Pick a controller, then verify the PIN printed in its manual."""
@@ -43,8 +46,10 @@ class InventerConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self) -> None:
-        self._discovered_address: str | None = None
-        self._discovered_name: str | None = None
+        self._address: str | None = None
+        self._name: str | None = None
+
+    # --- discovery and selection -------------------------------------------
 
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfoBleak
@@ -53,9 +58,9 @@ class InventerConfigFlow(ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(discovery_info.address)
         self._abort_if_unique_id_configured()
 
-        self._discovered_address = discovery_info.address
-        self._discovered_name = discovery_info.name or discovery_info.address
-        self.context["title_placeholders"] = {"name": self._discovered_name}
+        self._address = discovery_info.address
+        self._name = discovery_info.name or discovery_info.address
+        self.context["title_placeholders"] = {"name": self._name}
         return await self.async_step_pin()
 
     async def async_step_user(
@@ -63,8 +68,8 @@ class InventerConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Let the user choose among nearby controllers."""
         if user_input is not None:
-            self._discovered_address = user_input[CONF_ADDRESS]
-            await self.async_set_unique_id(self._discovered_address, raise_on_progress=False)
+            self._address = user_input[CONF_ADDRESS]
+            await self.async_set_unique_id(self._address, raise_on_progress=False)
             self._abort_if_unique_id_configured()
             return await self.async_step_pin()
 
@@ -84,49 +89,81 @@ class InventerConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required(CONF_ADDRESS): vol.In(candidates)}),
         )
 
+    # --- PIN verification ---------------------------------------------------
+
+    async def _async_verify_pin(self, pin: int) -> tuple[dict[str, str], dict[str, str]]:
+        """Connect once to check the PIN. Returns (errors, device info)."""
+        assert self._address is not None
+        device = async_ble_device_from_address(self.hass, self._address, connectable=True)
+
+        if device is None:
+            return {"base": "cannot_connect"}, {}
+
+        try:
+            info = await async_probe(device, pin)
+        except InventerAuthError:
+            return {CONF_PIN: "invalid_pin"}, {}
+        except InventerError as err:
+            _LOGGER.debug("Probe of %s failed: %s", self._address, err)
+            return {"base": "cannot_connect"}, {}
+
+        return {}, info
+
     async def async_step_pin(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Verify the PIN by connecting once."""
+        """Verify the PIN, then create the entry."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            assert self._discovered_address is not None
-            device = async_ble_device_from_address(
-                self.hass, self._discovered_address, connectable=True)
-
-            if device is None:
-                errors["base"] = "cannot_connect"
-            else:
-                try:
-                    info = await async_probe(device, user_input[CONF_PIN])
-                except InventerAuthError:
-                    errors[CONF_PIN] = "invalid_pin"
-                except InventerError as err:
-                    _LOGGER.debug("Probe failed: %s", err)
-                    errors["base"] = "cannot_connect"
-                else:
-                    name = info.get("model") or self._discovered_name or "inVENTer Connect"
-                    return self.async_create_entry(
-                        title=name,
-                        data={
-                            CONF_ADDRESS: self._discovered_address,
-                            CONF_PIN: user_input[CONF_PIN],
-                            CONF_ZONE: user_input.get(CONF_ZONE, DEFAULT_ZONE),
-                        },
-                    )
+            errors, info = await self._async_verify_pin(user_input[CONF_PIN])
+            if not errors:
+                return self.async_create_entry(
+                    title=info.get("model") or self._name or "inVENTer Connect",
+                    data={
+                        CONF_ADDRESS: self._address,
+                        CONF_PIN: user_input[CONF_PIN],
+                        CONF_ZONE: user_input.get(CONF_ZONE, DEFAULT_ZONE),
+                    },
+                )
 
         return self.async_show_form(
             step_id="pin",
             data_schema=PIN_SCHEMA,
             errors=errors,
-            description_placeholders={"name": self._discovered_name or ""},
+            description_placeholders={"name": self._name or ""},
         )
 
-    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
-        """Re-ask for the PIN after the controller rejected it."""
-        self._discovered_address = entry_data[CONF_ADDRESS]
-        return await self.async_step_pin()
+    # --- reauth -------------------------------------------------------------
+
+    async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
+        """Start over when the controller stops accepting the stored PIN."""
+        self._address = entry_data[CONF_ADDRESS]
+        self._name = self._get_reauth_entry().title
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask for the PIN again and update the existing entry in place."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            errors, _info = await self._async_verify_pin(user_input[CONF_PIN])
+            if not errors:
+                return self.async_update_reload_and_abort(
+                    self._get_reauth_entry(),
+                    data_updates={CONF_PIN: user_input[CONF_PIN]},
+                )
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=REAUTH_SCHEMA,
+            errors=errors,
+            description_placeholders={"name": self._name or ""},
+        )
+
+    # --- helpers ------------------------------------------------------------
 
     @staticmethod
     def _looks_like_controller(info: BluetoothServiceInfoBleak) -> bool:

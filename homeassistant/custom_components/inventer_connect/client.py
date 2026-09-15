@@ -94,7 +94,11 @@ class InventerClient:
 
         try:
             self._client = await establish_connection(
-                BleakClientWithServiceCache, device, device.address)
+                BleakClientWithServiceCache,
+                device,
+                device.address,
+                ble_device_callback=self._device_lookup,
+            )
         except (BleakError, asyncio.TimeoutError) as err:
             raise InventerConnectionError(f"could not connect to controller: {err}") from err
 
