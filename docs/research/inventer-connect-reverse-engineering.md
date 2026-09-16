@@ -13,6 +13,21 @@ Dekompilierung dafür durch Art. 6 der Software-Richtlinie 2009/24/EG bzw. § 69
 gedeckt. Es werden keine Binaries oder dekompilierten Quellen in dieses Repository
 übernommen — nur Protokollbeobachtungen.
 
+## Ausgang in diesem Haushalt
+
+**Der Lüfter im Bad ist gar kein Connect-System.** Ein BLE-Scan vor Ort zeigte
+`inVENTer Pulsar`, ein Einzelgerät auf dem Pax-Profil — nicht den Zonenregler,
+den dieses Dokument beschreibt. Gesteuert wird er seit September 2026 über
+[`eriknn/ha-pax_ble`](https://github.com/eriknn/ha-pax_ble), Modell `Calima`,
+PIN vom Lüftermotor. Das funktioniert und ist die richtige Wahl für Einzelgeräte.
+
+Die Hardware wurde anfangs per Rückfrage statt per Scan bestimmt; das hat in die
+falsche Gerätefamilie geführt. **Lehre: bei BLE-Hardware zuerst scannen, dann
+bauen.** Ein Blick mit nRF Connect hätte die Frage in zwei Minuten beantwortet.
+
+Die Analyse unten bleibt gültig — für den Connect-Regler, für den es weiterhin
+keine Lösung gibt. Sie ist nur nicht das, was hier im Bad hängt.
+
 ## Stand der Technik (Recherche September 2026)
 
 Vor und nach dieser Arbeit geprüft, was es bereits gibt:
@@ -286,10 +301,11 @@ Für die Multi-Zonen-Variante (Momento) gilt Service
    lesend.
 4. Erst danach ein `USER_OVERRIDE` schreiben, zunächst mit kurzem `timeoutSec`, damit
    der Regler von selbst zurückfällt.
-5. Die Integration liegt unter `homeassistant/custom_components/inventer_connect`:
+5. Die Integration lebt in einem eigenen Repository:
+   [`koka1979/ha-inventer-connect`](https://github.com/koka1979/ha-inventer-connect).
    `fan` mit Stufen 1-4 und Preset-Modes, dazu Sensoren und Binärsensoren über
    einen gemeinsamen `DataUpdateCoordinator`. Die Protokollschicht ist ohne
-   Hardware testbar (`python3 -m pytest homeassistant/tests/test_protocol.py`).
+   Hardware testbar.
 
 ## Zonen-Statusformat
 
