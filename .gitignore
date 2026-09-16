@@ -95,3 +95,7 @@ HomelabAndroid/.kotlin/
 
 # Media / Docs (keep screenshots, ignore API docs)
 media-docs/docs-api-services/
+
+# Python
+__pycache__/
+*.py[cod]
